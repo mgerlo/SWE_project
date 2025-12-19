@@ -3,7 +3,8 @@ package com.splitmanager.domain.registry;
 import com.splitmanager.domain.registry.MembershipStatus;
 import com.splitmanager.domain.registry.Role;
 import com.splitmanager.domain.events.DomainEvent;
-import com.splitmanager.domain.events.Observer; // Interfaccia definita prima
+import com.splitmanager.domain.events.Observer;
+import com.splitmanager.domain.accounting.Balance;
 
 import java.util.Objects;
 
