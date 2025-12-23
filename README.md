@@ -12,7 +12,7 @@ Sistema software per la gestione delle spese condivise all'interno di gruppi di 
 ## Autori
 Carmen Possidente - 7115970
 
-Matteo Gerlotti -  [Matricola] 
+Matteo Gerlotti -  7025024 
 
 Roberta Donato -  [Matricola] 
 
