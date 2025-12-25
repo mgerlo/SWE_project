@@ -35,7 +35,7 @@ public class DomainEvent {
     }
 
     public EventType getType() { 
-        return null; 
+        return type;
     }
     
     public Long getSourceId() {

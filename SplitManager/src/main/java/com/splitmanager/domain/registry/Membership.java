@@ -17,6 +17,17 @@ public class Membership implements Observer {
     private MembershipStatus status;
 
     public Membership(Long membershipId, User user, Group group, Role role) {
+        // Validazioni di base
+        if (user == null) {
+            throw new IllegalArgumentException("User non può essere null");
+        }
+        if (group == null) {
+            throw new IllegalArgumentException("Group non può essere null");
+        }
+        if (role == null) {
+            throw new IllegalArgumentException("Role non può essere null");
+        }
+
         this.membershipId = membershipId;
         this.user = user;
         this.group = group;
@@ -70,21 +81,42 @@ public class Membership implements Observer {
 
     @Override
     public void onDomainEvent(DomainEvent event) {
-        // Logica di reazione agli eventi.
-        // Esempio: Se arriva una notifica di bilancio aggiornato, potremmo aggiornare cache locali
-        // o loggare l'attività.
-
-        System.out.println("Utente " + user.getFullName() + " ha ricevuto evento: " + event.getType());
-
-        // Esempio concreto:
-        // if (event.getType() == EventType.BALANCE_UPDATED && event.getPayload().containsKey(this.membershipId)) {
-        //     this.balance.refresh();
-        // }
+        // Logica di reazione agli eventi, solo logging
+        // Il Service aggiorna direttamente i Balance
+        System.out.println(
+                "[" + user.getFullName() + "] Evento ricevuto: " + event.getType()
+        );
     }
 
     // Getters e Equals
-    public Long getMembershipId() { return membershipId; }
-    public User getUser() { return user; }
+    public Long getMembershipId() {
+        return membershipId;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public Group getGroup() {
+        return group;
+    }
+
+    public Balance getBalance() {
+        return balance;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public MembershipStatus getStatus() {
+        return status;
+    }
+
+    // Setters per DAO
+    public void setMembershipId(Long membershipId) {
+        this.membershipId = membershipId;
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -92,5 +124,16 @@ public class Membership implements Observer {
         if (o == null || getClass() != o.getClass()) return false;
         Membership that = (Membership) o;
         return Objects.equals(membershipId, that.membershipId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(membershipId);
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Membership[id=%d, user=%s, role=%s, status=%s]",
+                membershipId, user.getFullName(), role, status);
     }
 }

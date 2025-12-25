@@ -6,27 +6,40 @@ public class User {
     private Long userId;
     private String email;
     private String fullName;
-    private String password; // Hash della password
+    private String passwordHash; // Hash della passwordHash
 
     // Costruttore
-    public User(Long userId, String email, String fullName, String password) {
+    public User(Long userId, String email, String fullName, String passwordHash) {
+        // validazioni di base
+        if (email == null || email.trim().isEmpty()) {
+            throw new IllegalArgumentException("Email non può essere vuota");
+        }
+        if (fullName == null || fullName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Nome completo non può essere vuoto");
+        }
+        if (passwordHash == null || passwordHash.trim().isEmpty()) {
+            throw new IllegalArgumentException("password hash non può essere vuoto");
+        }
+        
         this.userId = userId;
         this.email = email;
         this.fullName = fullName;
-        this.password = password;
-    }
-
-    // --- Metodi di Business ---
-
-    public boolean checkPassword(String input) {
-        if (input == null) return false;
-        return this.password.equals(input);
+        this.passwordHash = passwordHash;
     }
 
     // Getters
-    public Long getUserId() { return userId; }
-    public String getEmail() { return email; }
-    public String getFullName() { return fullName; }
+    public Long getUserId() {
+        return userId;
+    }
+    public String getEmail() {
+        return email;
+    }
+    public String getFullName() {
+        return fullName;
+    }
+    public String getPasswordHash() {
+        return passwordHash;
+    }
 
     // Override equals/hashCode basati su ID o Email per coerenza
     @Override
@@ -35,5 +48,16 @@ public class User {
         if (o == null || getClass() != o.getClass()) return false;
         User user = (User) o;
         return Objects.equals(userId, user.userId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(userId);
+    }
+
+    @Override
+    public String toString() {
+        return String.format("User[id=%d, email=%s, name=%s]",
+                userId, email, fullName);
     }
 }
