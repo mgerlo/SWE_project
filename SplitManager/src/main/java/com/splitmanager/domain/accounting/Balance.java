@@ -8,15 +8,14 @@ import java.util.Objects;
 
 /**
  * Rappresenta il saldo netto di un membro all'interno di un gruppo.
- *
  * netBalance > 0  -> posizione creditoria
  * netBalance < 0  -> posizione debitoria
  * netBalance = 0  -> saldo chiuso
  */
 public class Balance {
 
-    private Long balanceId;
-    private Membership membership;
+    private final Long balanceId;
+    private final Membership membership;
     private BigDecimal netBalance;
     private LocalDateTime lastUpdated;
 
