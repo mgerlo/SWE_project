@@ -3,6 +3,7 @@ package com.splitmanager.domain.accounting;
 import com.splitmanager.domain.registry.Membership;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -14,7 +15,7 @@ import java.util.Objects;
  */
 public class Balance {
 
-    private final Long balanceId;
+    private Long balanceId; // Tolto final per DAO
     private final Membership membership;
     private BigDecimal netBalance;
     private LocalDateTime lastUpdated;
@@ -27,7 +28,7 @@ public class Balance {
     public Balance(Long balanceId, Membership membership) {
         this.balanceId = balanceId;
         this.membership = Objects.requireNonNull(membership);
-        this.netBalance = BigDecimal.ZERO;
+        this.netBalance = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         this.lastUpdated = LocalDateTime.now();
     }
 
@@ -57,18 +58,18 @@ public class Balance {
     /**
      * Incrementa il saldo (posizione creditoria).
      */
-    public void increase(BigDecimal amount) {
+    public void increment(BigDecimal amount) {
         validateAmount(amount);
-        netBalance = netBalance.add(amount);
+        netBalance = netBalance.add(amount).setScale(2, RoundingMode.HALF_UP);
         touch();
     }
 
     /**
      * Decrementa il saldo (posizione debitoria).
      */
-    public void decrease(BigDecimal amount) {
+    public void decrement(BigDecimal amount) {
         validateAmount(amount);
-        netBalance = netBalance.subtract(amount);
+        netBalance = netBalance.subtract(amount).setScale(2, RoundingMode.HALF_UP);
         touch();
     }
 
@@ -79,7 +80,7 @@ public class Balance {
         if (delta == null || delta.compareTo(BigDecimal.ZERO) == 0) {
             return;
         }
-        netBalance = netBalance.add(delta);
+        netBalance = netBalance.add(delta).setScale(2, RoundingMode.HALF_UP);
         touch();
     }
 
@@ -87,7 +88,7 @@ public class Balance {
      * Riporta il saldo a zero.
      */
     public void settle() {
-        netBalance = BigDecimal.ZERO;
+        netBalance = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         touch();
     }
 
@@ -109,8 +110,17 @@ public class Balance {
         return balanceId;
     }
 
+    // Fondamentale per il DAO
+    public void setBalanceId(Long balanceId) {
+        this.balanceId = balanceId;
+    }
+
     public Membership getMembership() {
         return membership;
+    }
+
+    public BigDecimal getAmount() {
+        return netBalance;
     }
 
     public BigDecimal getNetBalance() {
@@ -120,12 +130,32 @@ public class Balance {
     public LocalDateTime getLastUpdated() {
         return lastUpdated;
     }
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Balance balance = (Balance) o;
+
+        // Se c'è l'ID, usa quello
+        if (balanceId != null && balance.balanceId != null) {
+            return Objects.equals(balanceId, balance.balanceId);
+        }
+
+        // Altrimenti basati sulla Membership (un membro ha un solo balance per gruppo)
+        return Objects.equals(membership, balance.membership);
+    }
+
+    @Override
+    public int hashCode() {
+        return balanceId != null ? Objects.hash(balanceId) : Objects.hash(membership);
+    }
 
     @Override
     public String toString() {
         return "Balance{" +
-                "netBalance=" + netBalance +
-                ", lastUpdated=" + lastUpdated +
+                "id=" + balanceId +
+                ", member=" + (membership != null ? membership.getUser().getFullName() : "null") +
+                ", net=" + netBalance +
                 '}';
     }
 }

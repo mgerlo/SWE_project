@@ -11,7 +11,7 @@ import java.util.Objects;
  */
 public class ExpenseParticipant {
 
-    private final Long participantId;
+    private Long participantId; // Tolto final per permettere al DAO di settarlo
     private final Expense expense;
     private final Membership beneficiary;
     private BigDecimal shareAmount;
@@ -31,14 +31,12 @@ public class ExpenseParticipant {
         this.beneficiary = Objects.requireNonNull(beneficiary, "Beneficiary cannot be null");
         setShareAmount(shareAmount);
     }
-
     /**
      * Costruttore di supporto senza ID (es. prima della persistenza).
      */
     public ExpenseParticipant(Expense expense,
                               Membership beneficiary,
                               BigDecimal shareAmount) {
-
         this(null, expense, beneficiary, shareAmount);
     }
 
@@ -59,10 +57,15 @@ public class ExpenseParticipant {
         this.shareAmount = amount;
     }
 
-    // --- Getter ---
+    // --- Getter & Setter ---
 
     public Long getParticipantId() {
         return participantId;
+    }
+
+    // Aggiunto per permettere al DAO di impostare l'ID generato
+    public void setParticipantId(Long participantId) {
+        this.participantId = participantId;
     }
 
     public Expense getExpense() {

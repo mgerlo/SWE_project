@@ -1,18 +1,24 @@
 package com.splitmanager.domain.accounting;
 
+import com.splitmanager.domain.events.DomainEvent;
+import com.splitmanager.domain.events.EventType;
+import com.splitmanager.domain.events.Subject;
 import com.splitmanager.domain.registry.Group;
 import com.splitmanager.domain.registry.Membership;
+import com.splitmanager.exception.UnauthorizedException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /** Represents an expense within a group.
  * It defines who paid, who participates and how the amount is shared. */
-public class Expense {
+public class Expense extends Subject {
 
     private final Long expenseId;
     private final Group group;
@@ -29,9 +35,6 @@ public class Expense {
 
     // --- Costruttori ---
 
-    /**
-     * Costruttore per nuova spesa.
-     */
     public Expense(Long expenseId,
                    Group group,
                    Membership payer,
@@ -53,9 +56,6 @@ public class Expense {
         this.isDeleted = false;
     }
 
-    /**
-     * Costruttore di supporto senza ID (prima della persistenza).
-     */
     public Expense(Group group,
                    Membership payer,
                    Membership createdBy,
@@ -65,6 +65,19 @@ public class Expense {
                    LocalDateTime expenseDate) {
 
         this(null, group, payer, createdBy, amount, description, category, expenseDate);
+    }
+
+    // --- Metodi di Autorizzazione (Mancavano) ---
+
+    public boolean isEditableBy(Membership actor) {
+        if (actor == null) return false;
+        // Solo admin o chi l'ha creata può modificarla
+        return actor.isAdmin() || this.createdBy.equals(actor);
+    }
+
+    public boolean canBeDeletedBy(Membership actor) {
+        if (actor == null) return false;
+        return actor.isAdmin() || this.createdBy.equals(actor);
     }
 
     // --- Metodi di Business ---
@@ -85,6 +98,9 @@ public class Expense {
 
     /** Rimuove un partecipante dalla spesa. */
     public void removeParticipant(ExpenseParticipant participant) {
+        if (isDeleted) {
+            throw new IllegalStateException("Cannot modify a deleted expense");
+        }
         if (participants.remove(participant)) {
             touch();
         }
@@ -96,41 +112,71 @@ public class Expense {
                 .map(ExpenseParticipant::getShareAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        // Uso compareTo per sicurezza con BigDecimal
         return totalShares.compareTo(amount) == 0;
     }
 
-    /** Modifica i dati principali della spesa. */
-    public void update(BigDecimal newAmount,
-                       String newDescription,
-                       Category newCategory,
-                       LocalDateTime newExpenseDate) {
+    /**
+     * Modifica i dati principali della spesa.
+     * Rinominato da update() a modifyDetails() come da UML.
+     */
+    public void modifyDetails(BigDecimal newAmount,
+                              String newDescription,
+                              Category newCategory,
+                              Membership modifiedBy) { // ✅ FIX: Aggiunto parametro actor
+
+        // Controllo autorizzazioni
+        if (!isEditableBy(modifiedBy)) {
+            throw new UnauthorizedException("Solo admin o creatore possono modificare la spesa");
+        }
 
         if (isDeleted) {
             throw new IllegalStateException("Cannot update a deleted expense");
         }
 
-        if (newAmount != null) {
-            setAmount(newAmount);
-        }
-        if (newDescription != null) {
-            this.description = newDescription;
-        }
-        if (newCategory != null) {
-            this.category = newCategory;
-        }
-        if (newExpenseDate != null) {
-            this.expenseDate = newExpenseDate;
-        }
+        if (newAmount != null) setAmount(newAmount);
+        if (newDescription != null) this.description = newDescription;
+        if (newCategory != null) this.category = newCategory;
 
         touch();
+
+        // Notifica Observer
+        notifyObservers(createEvent(
+                EventType.EXPENSE_UPDATED,
+                modifiedBy,
+                Map.of("newAmount", this.amount, "description", this.description)
+        ));
     }
 
     /**
      * Soft delete della spesa.
+     * Rinominato da delete() a markAsDeleted() come da UML.
      */
-    public void delete() {
+    public void markAsDeleted(Membership deletedBy) {
+        if (!canBeDeletedBy(deletedBy)) {
+            throw new UnauthorizedException("Solo admin o creatore possono eliminare la spesa");
+        }
+
+        if (isDeleted) {
+            throw new IllegalStateException("Expense already deleted");
+        }
+
         this.isDeleted = true;
         touch();
+
+        // Notifica Observer
+        notifyObservers(createEvent(
+                EventType.EXPENSE_DELETED,
+                deletedBy,
+                Map.of("amount", amount, "description", description)
+        ));
+    }
+
+    // --- Helper Eventi ---
+
+    public DomainEvent createEvent(EventType type, Membership triggeredBy, Map<String, Object> payload) {
+        Long triggeredById = (triggeredBy != null) ? triggeredBy.getMembershipId() : null;
+        return new DomainEvent(null, type, this.expenseId, triggeredById, payload);
     }
 
     // --- Metodi di supporto ---
@@ -148,56 +194,34 @@ public class Expense {
 
     // --- Getter ---
 
-    public Long getExpenseId() {
-        return expenseId;
+    public List<Membership> getParticipants() {
+        return participants.stream()
+                .map(ExpenseParticipant::getBeneficiary)
+                .collect(Collectors.toList());
     }
 
-    public Group getGroup() {
-        return group;
-    }
-
-    public Membership getPayer() {
-        return payer;
-    }
-
-    public Membership getCreatedBy() {
-        return createdBy;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public Category getCategory() {
-        return category;
-    }
-
-    public LocalDateTime getExpenseDate() {
-        return expenseDate;
-    }
-
-    public LocalDateTime getLastModifiedDate() {
-        return lastModifiedDate;
-    }
-
-    public boolean isDeleted() {
-        return isDeleted;
-    }
-
-    public List<ExpenseParticipant> getParticipants() {
+    public List<ExpenseParticipant> getParticipantDetails() {
         return Collections.unmodifiableList(participants);
     }
+
+    public Long getExpenseId() { return expenseId; }
+    public Group getGroup() { return group; }
+    public Membership getPayer() { return payer; }
+    public Membership getCreatedBy() { return createdBy; }
+    public BigDecimal getAmount() { return amount; }
+    public String getDescription() { return description; }
+    public Category getCategory() { return category; }
+    public LocalDateTime getExpenseDate() { return expenseDate; }
+    public LocalDateTime getLastModifiedDate() { return lastModifiedDate; }
+    public boolean isDeleted() { return isDeleted; }
 
     @Override
     public String toString() {
         return "Expense{" +
-                "amount=" + amount +
+                "id=" + expenseId +
+                ", amount=" + amount +
                 ", description='" + description + '\'' +
-                ", category=" + category +
+                ", payer=" + payer.getFullName() +
                 '}';
     }
 }

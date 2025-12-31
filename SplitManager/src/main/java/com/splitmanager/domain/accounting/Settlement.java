@@ -1,15 +1,21 @@
 package com.splitmanager.domain.accounting;
 
+import com.splitmanager.domain.events.DomainEvent;
+import com.splitmanager.domain.events.EventType;
+import com.splitmanager.domain.events.Subject;
 import com.splitmanager.domain.registry.Group;
 import com.splitmanager.domain.registry.Membership;
+import com.splitmanager.exception.UnauthorizedException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Objects;
 
-/** Represents a settlement payment between two members of a group.
- * A settlement is used to balance outstanding debts. */
-public class Settlement {
+/** * Represents a settlement payment between two members of a group.
+ * A settlement is used to balance outstanding debts.
+ */
+public class Settlement extends Subject {
 
     private final Long settlementId;
     private final Group group;
@@ -41,9 +47,9 @@ public class Settlement {
             throw new IllegalArgumentException("Payer and receiver must be different");
         }
 
-        setAmount(amount);
+        setAmount(amount); // Usa il metodo privato per validare
         this.date = date != null ? date : LocalDateTime.now();
-        this.status = status != null ? status : PaymentStatus.CREATED;
+        this.status = status != null ? status : PaymentStatus.PENDING;
     }
 
     /**
@@ -53,30 +59,64 @@ public class Settlement {
                       Membership payer,
                       Membership receiver,
                       BigDecimal amount) {
+        this(null, group, payer, receiver, amount, LocalDateTime.now(), PaymentStatus.PENDING);
+    }
 
-        this(null, group, payer, receiver, amount, LocalDateTime.now(), PaymentStatus.CREATED);
+    // --- Metodi di Autorizzazione (Mancavano) ---
+
+    public boolean canBeConfirmedBy(Membership actor) {
+        if (actor == null) return false;
+        // Solo chi riceve i soldi può dire "Sì, li ho ricevuti"
+        return this.receiver.equals(actor);
     }
 
     // --- Metodi di Business ---
 
     /**
-     * Conferma il pagamento del settlement.
+     * Esegue la conferma del pagamento.
+     * Rinominato da confirm() a executeConfirmation() come da UML.
      */
-    public void confirm() {
-        if (status != PaymentStatus.CREATED) {
-            throw new IllegalStateException("Only a CREATED settlement can be confirmed");
+    public void executeConfirmation(Membership confirmedBy) { // ✅ FIX: Aggiunto parametro actor
+        if (!canBeConfirmedBy(confirmedBy)) {
+            throw new UnauthorizedException("Solo il receiver può confermare il settlement");
         }
-        this.status = PaymentStatus.CONFIRMED;
+
+        if (status != PaymentStatus.PENDING) {
+            throw new IllegalStateException("Solo un settlement PENDING può essere confermato");
+        }
+
+        this.status = PaymentStatus.COMPLETED; // ✅ FIX: Usa COMPLETED
+
+        // ✅ FIX: Notifica Observer
+        notifyObservers(createEvent(
+                EventType.SETTLEMENT_CONFIRMED,
+                confirmedBy,
+                Map.of("amount", amount, "payerId", payer.getMembershipId())
+        ));
     }
 
     /**
-     * Annulla il settlement (se previsto dallo stato).
+     * Annulla il settlement.
+     * Rinominato da cancel() a executeCancellation() come da UML.
      */
-    public void cancel() {
-        if (status == PaymentStatus.CONFIRMED) {
-            throw new IllegalStateException("A confirmed settlement cannot be cancelled");
+    public void executeCancellation(Membership cancelledBy) { // ✅ FIX: Aggiunto parametro actor
+        // Logica permissiva: Admin, Payer o Receiver possono annullare se è ancora pending
+        if (!cancelledBy.isAdmin() && !cancelledBy.equals(payer) && !cancelledBy.equals(receiver)) {
+            throw new UnauthorizedException("Non hai i permessi per annullare questo settlement");
         }
-        this.status = PaymentStatus.CANCELLED;
+
+        if (status == PaymentStatus.COMPLETED) {
+            throw new IllegalStateException("Impossibile annullare un pagamento già completato");
+        }
+
+        this.status = PaymentStatus.REJECTED;
+    }
+
+    // --- Helper Eventi (Nuovo) ---
+
+    public DomainEvent createEvent(EventType type, Membership triggeredBy, Map<String, Object> payload) {
+        Long triggeredById = (triggeredBy != null) ? triggeredBy.getMembershipId() : null;
+        return new DomainEvent(null, type, this.settlementId, triggeredById, payload);
     }
 
     // --- Metodi di supporto ---
@@ -90,46 +130,31 @@ public class Settlement {
 
     // --- Getter ---
 
-    public Long getSettlementId() {
-        return settlementId;
-    }
-
-    public Group getGroup() {
-        return group;
-    }
-
-    public Membership getPayer() {
-        return payer;
-    }
-
-    public Membership getReceiver() {
-        return receiver;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public LocalDateTime getDate() {
-        return date;
-    }
-
-    public PaymentStatus getStatus() {
-        return status;
-    }
+    public Long getSettlementId() { return settlementId; }
+    public Group getGroup() { return group; }
+    public Membership getPayer() { return payer; }
+    public Membership getReceiver() { return receiver; }
+    public BigDecimal getAmount() { return amount; }
+    public LocalDateTime getDate() { return date; }
+    public PaymentStatus getStatus() { return status; }
 
     // --- Utility ---
 
-    public boolean isConfirmed() {
-        return status == PaymentStatus.CONFIRMED;
+    public boolean isPending() {
+        return status == PaymentStatus.PENDING;
+    }
+
+    public boolean isConfirmed() { // Manteniamo per retrocompatibilità o comodità
+        return status == PaymentStatus.COMPLETED;
     }
 
     @Override
     public String toString() {
         return "Settlement{" +
-                "amount=" + amount +
-                ", payer=" + payer +
-                ", receiver=" + receiver +
+                "id=" + settlementId +
+                ", amount=" + amount +
+                ", payer=" + payer.getFullName() +
+                ", receiver=" + receiver.getFullName() +
                 ", status=" + status +
                 '}';
     }
