@@ -215,13 +215,18 @@ public class Expense extends Subject {
     public LocalDateTime getLastModifiedDate() { return lastModifiedDate; }
     public boolean isDeleted() { return isDeleted; }
 
+
     @Override
     public String toString() {
+        String payerName = (payer != null && payer.getUser() != null)
+                ? payer.getUser().getFullName()
+                : "Unknown";
+
         return "Expense{" +
                 "id=" + expenseId +
                 ", amount=" + amount +
                 ", description='" + description + '\'' +
-                ", payer=" + payer.getFullName() +
+                ", payer=" + payerName +
                 '}';
     }
 }

@@ -150,11 +150,19 @@ public class Settlement extends Subject {
 
     @Override
     public String toString() {
+        String payerName = (payer != null && payer.getUser() != null)
+                ? payer.getUser().getFullName()
+                : "Unknown";
+
+        String receiverName = (receiver != null && receiver.getUser() != null)
+                ? receiver.getUser().getFullName()
+                : "Unknown";
+
         return "Settlement{" +
                 "id=" + settlementId +
                 ", amount=" + amount +
-                ", payer=" + payer.getFullName() +
-                ", receiver=" + receiver.getFullName() +
+                ", payer=" + payerName +
+                ", receiver=" + receiverName +
                 ", status=" + status +
                 '}';
     }
