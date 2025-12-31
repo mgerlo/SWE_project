@@ -3,6 +3,9 @@ package com.splitmanager.domain.registry;
 import com.splitmanager.domain.events.EventType;
 import com.splitmanager.domain.events.DomainEvent;
 import com.splitmanager.domain.events.Subject;
+import com.splitmanager.exception.UnauthorizedException;
+import com.splitmanager.exception.DomainException;
+
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -16,6 +19,13 @@ public class Group extends Subject {
     private boolean isActive;
 
     public Group(Long groupId, String name, String currency) {
+        // validazioni di base
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("Nome gruppo non può essere vuoto");
+        }
+        if (currency == null || currency.trim().isEmpty()) {
+            throw new IllegalArgumentException("Valuta non può essere vuota");
+        }
         this.groupId = groupId;
         this.name = name;
         this.currency = currency;
@@ -38,7 +48,9 @@ public class Group extends Subject {
     public void updateGroupInfo(String name, String desc, String curr, Membership actor) {
         // Controllo permessi: solo ADMIN può modificare
         if (!actor.isAdmin()) {
-            throw new SecurityException("Solo gli amministratori possono modificare le impostazioni del gruppo.");
+            throw new UnauthorizedException(
+                    "Solo gli amministratori possono modificare le impostazioni del gruppo."
+            );
         }
 
         this.name = name;
@@ -53,8 +65,11 @@ public class Group extends Subject {
 
     public void updateInviteCode(String newCode, Membership actor) {
         if (!actor.isAdmin()) {
-            throw new SecurityException("Solo gli amministratori possono generare codici invito.");
+            throw new UnauthorizedException(
+                    "Solo gli amministratori possono generare codici invito."
+            );
         }
+
         this.inviteCode = newCode;
         // Imposta scadenza a 48 ore (esempio di regola di business)
         this.inviteCodeExpiry = LocalDateTime.now().plusHours(48);
@@ -64,22 +79,21 @@ public class Group extends Subject {
 
     public void addMembership(Membership membership) {
         if (!this.isActive) {
-            throw new IllegalStateException("Impossibile aggiungere membri a un gruppo disattivato.");
+            throw new DomainException(
+                    "Impossibile aggiungere membri a un gruppo disattivato."
+            );
         }
-        // Qui potresti chiamare attach() se il membro entra subito attivo
-        if (membership.isActive()) {
-            this.attach(membership);
-        }
+
         notifyObservers(createEvent(EventType.MEMBER_JOINED, membership, Map.of("joinedMemberId", membership.getMembershipId())));
     }
 
     public void removeMembership(Membership target, Membership actor) {
         if (!canRemoveMember(actor, target)) {
-            throw new SecurityException("Non hai i permessi per rimuovere questo membro.");
+            throw new UnauthorizedException(
+                    "Non hai i permessi per rimuovere questo membro."
+            );
         }
 
-        // Logica di rimozione delegata all'entità Membership
-        target.terminate();
         this.detach(target); // Rimuove dalla lista observer
 
         notifyObservers(createEvent(EventType.MEMBER_REMOVED, actor, Map.of("removedMemberId", target.getMembershipId())));
@@ -88,7 +102,6 @@ public class Group extends Subject {
     public void deactivate() {
         this.isActive = false;
         // Nessuno riceverà più notifiche future dopo questo evento
-        // (Logica gestita eventualmente nel Service svuotando gli observer)
     }
 
     // --- Controlli di Permessi ---
@@ -109,18 +122,65 @@ public class Group extends Subject {
 
     // --- Helper per Eventi ---
 
-    public DomainEvent createEvent(EventType type, Membership triggeredBy, Map<String, Object> payload) {
-        // Crea un evento immutabile
+    public DomainEvent createEvent(EventType type, Membership triggeredBy,
+                                   Map<String, Object> payload) {
+        // Gestione null-safe
+        Long triggeredById = (triggeredBy != null)
+                ? triggeredBy.getMembershipId()
+                : null;
+
         return new DomainEvent(
-                null, // ID generato poi o nullo per eventi volatili
+                null,           // eventId
                 type,
-                this.groupId, // Source ID
-                triggeredBy.getMembershipId(),
+                this.groupId,   // sourceId
+                triggeredById,  // triggeredBy (Long)
                 payload
         );
     }
 
+
     // Getters necessari
-    public Long getGroupId() { return groupId; }
-    public boolean isActive() { return isActive; }
+    public Long getGroupId() {
+        return groupId;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public String getInviteCode() {
+        return inviteCode;
+    }
+
+    public LocalDateTime getInviteCodeExpiry() {
+        return inviteCodeExpiry;
+    }
+
+    public boolean isActive() {
+        return isActive;
+    }
+
+    // Setters necessari per DAO
+    public void setGroupId(Long groupId) {
+        this.groupId = groupId;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Group[id=%d, name=%s, currency=%s, active=%b]",
+                groupId, name, currency, isActive);
+    }
+
 }
