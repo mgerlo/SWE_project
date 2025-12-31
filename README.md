@@ -27,10 +27,11 @@ Il progetto segue un'architettura multilayered:
 
 ## Tecnologie Utilizzate
 - **Linguaggio**: Java 21
-- **Database**: PostgreSQL
+- **Database**: H2 Database
+- **Build System:** Maven
 - **Database Connectivity**: JDBC
 - **Testing**: JUnit 5
-- **Diagrammi**: Luchidchart
+- **Diagrammi**: Lucidchart
 - **IDE**: IntelliJ IDEA
 
 ## Documentazione
