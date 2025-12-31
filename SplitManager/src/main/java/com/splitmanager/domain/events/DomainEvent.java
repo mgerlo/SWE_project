@@ -16,6 +16,7 @@ public class DomainEvent {
     private final Map<String, Object> payload;
 
     public DomainEvent(Long eventId, EventType type, Long sourceId, Long triggeredBy, Map<String, Object> payload) {
+
         this.eventId = eventId;
         this.type = Objects.requireNonNull(type, "EventType cannot be null");
         this.sourceId = Objects.requireNonNull(sourceId, "SourceId cannot be null");
