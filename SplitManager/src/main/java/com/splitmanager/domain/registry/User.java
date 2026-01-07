@@ -1,6 +1,7 @@
 package com.splitmanager.domain.registry;
 
 import java.util.Objects;
+import com.splitmanager.util.PasswordHasher;
 
 public class User {
     private Long userId;
@@ -25,6 +26,12 @@ public class User {
         this.email = email;
         this.fullName = fullName;
         this.passwordHash = passwordHash;
+    }
+
+    public boolean checkPassword(String plainPassword) {
+        if (plainPassword == null) return false;
+        // Delega al PasswordHasher
+        return PasswordHasher.verify(plainPassword, this.passwordHash);
     }
 
     // Getters

@@ -81,11 +81,11 @@ public class Membership implements Observer {
 
     @Override
     public void onDomainEvent(DomainEvent event) {
-        // Logica di reazione agli eventi, solo logging
-        // Il Service aggiorna direttamente i Balance
-        System.out.println(
-                "[" + user.getFullName() + "] Evento ricevuto: " + event.getType()
-        );
+        String memberName = user != null ? user.getFullName() : "Unknown";
+        System.out.printf("[%s] Ricevuto evento: %s da source=%d%n",
+                memberName, event.getType(), event.getSourceId());
+
+        // Il Service aggiorna i Balance, qui solo notifica
     }
 
     // Getters e Equals

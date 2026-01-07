@@ -77,14 +77,28 @@ public class Group extends Subject {
         notifyObservers(createEvent(EventType.INVITE_SENT, actor, Map.of("code", newCode)));
     }
 
-    public void addMembership(Membership membership) {
-        if (!this.isActive) {
-            throw new DomainException(
-                    "Impossibile aggiungere membri a un gruppo disattivato."
-            );
+    public void addMembership(Membership newMember, Membership actor) {
+        if (!canInviteMember(actor)) {
+            throw new UnauthorizedException("Solo gli admin possono aggiungere membri");
         }
 
-        notifyObservers(createEvent(EventType.MEMBER_JOINED, membership, Map.of("joinedMemberId", membership.getMembershipId())));
+        if (!this.isActive) {
+            throw new DomainException("Gruppo non attivo");
+        }
+
+        if (newMember == null) {
+            throw new IllegalArgumentException("Membership non può essere null");
+        }
+
+        // Evita duplicati: rimuove se già presente, poi aggiunge
+        this.detach(newMember);
+        this.attach(newMember);
+
+        notifyObservers(createEvent(
+                EventType.MEMBER_JOINED,
+                actor,
+                Map.of("newMemberId", newMember.getMembershipId())
+        ));
     }
 
     public void removeMembership(Membership target, Membership actor) {
@@ -103,6 +117,7 @@ public class Group extends Subject {
         this.isActive = false;
         // Nessuno riceverà più notifiche future dopo questo evento
     }
+
 
     // --- Controlli di Permessi ---
 
