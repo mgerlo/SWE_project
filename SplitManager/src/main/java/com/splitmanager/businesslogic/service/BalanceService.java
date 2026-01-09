@@ -1,5 +1,4 @@
-// language: java
-package com.splitmanager.service;
+package com.splitmanager.businesslogic.service;
 
 import com.splitmanager.dao.BalanceDAO;
 import com.splitmanager.dao.GroupDAO;
@@ -9,8 +8,8 @@ import com.splitmanager.domain.accounting.Settlement;
 import com.splitmanager.domain.registry.Group;
 import com.splitmanager.domain.registry.Membership;
 import com.splitmanager.exception.EntityNotFoundException;
-import com.splitmanager.service.strategy.BalanceStrategy;
-import com.splitmanager.service.strategy.MinTransactionsStrategy;
+import com.splitmanager.businesslogic.service.BalanceStrategy;
+import com.splitmanager.businesslogic.service.MinTransactionsStrategy;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
