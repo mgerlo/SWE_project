@@ -123,7 +123,7 @@ public class Expense extends Subject {
     public void modifyDetails(BigDecimal newAmount,
                               String newDescription,
                               Category newCategory,
-                              Membership modifiedBy) { // ✅ FIX: Aggiunto parametro actor
+                              Membership modifiedBy) {
 
         // Controllo autorizzazioni
         if (!isEditableBy(modifiedBy)) {

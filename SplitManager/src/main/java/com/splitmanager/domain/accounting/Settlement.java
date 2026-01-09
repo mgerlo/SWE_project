@@ -76,16 +76,16 @@ public class Settlement extends Subject {
      * Esegue la conferma del pagamento.
      * Rinominato da confirm() a executeConfirmation() come da UML.
      */
-    public void executeConfirmation(Membership confirmedBy) { // ✅ FIX: Aggiunto parametro actor
+    public void executeConfirmation(Membership confirmedBy) {
         if (!canBeConfirmedBy(confirmedBy)) {
-            throw new UnauthorizedException("Solo il receiver può confermare il settlement");
+            throw new UnauthorizedException("Only the receiver can confirm this settlement");
         }
 
         if (status != PaymentStatus.PENDING) {
-            throw new IllegalStateException("Solo un settlement PENDING può essere confermato");
+            throw new IllegalStateException("Only PENDING settlements can be confirmed");
         }
 
-        this.status = PaymentStatus.COMPLETED; // ✅ FIX: Usa COMPLETED
+        this.status = PaymentStatus.COMPLETED;
 
         // ✅ FIX: Notifica Observer
         notifyObservers(createEvent(
@@ -99,14 +99,14 @@ public class Settlement extends Subject {
      * Annulla il settlement.
      * Rinominato da cancel() a executeCancellation() come da UML.
      */
-    public void executeCancellation(Membership cancelledBy) { // ✅ FIX: Aggiunto parametro actor
+    public void executeCancellation(Membership cancelledBy) {
         // Logica permissiva: Admin, Payer o Receiver possono annullare se è ancora pending
         if (!cancelledBy.isAdmin() && !cancelledBy.equals(payer) && !cancelledBy.equals(receiver)) {
-            throw new UnauthorizedException("Non hai i permessi per annullare questo settlement");
+            throw new UnauthorizedException("You do not have permission to cancel this settlement");
         }
 
         if (status == PaymentStatus.COMPLETED) {
-            throw new IllegalStateException("Impossibile annullare un pagamento già completato");
+            throw new IllegalStateException("Impossible to cancel a COMPLETED settlement");
         }
 
         this.status = PaymentStatus.REJECTED;

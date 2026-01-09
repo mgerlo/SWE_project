@@ -21,10 +21,10 @@ public class Group extends Subject {
     public Group(Long groupId, String name, String currency) {
         // validazioni di base
         if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("Nome gruppo non può essere vuoto");
+            throw new IllegalArgumentException("Group name cannot be empty");
         }
         if (currency == null || currency.trim().isEmpty()) {
-            throw new IllegalArgumentException("Valuta non può essere vuota");
+            throw new IllegalArgumentException("Currency cannot be empty");
         }
         this.groupId = groupId;
         this.name = name;
@@ -49,7 +49,7 @@ public class Group extends Subject {
         // Controllo permessi: solo ADMIN può modificare
         if (!actor.isAdmin()) {
             throw new UnauthorizedException(
-                    "Solo gli amministratori possono modificare le impostazioni del gruppo."
+                    "Only admins can update group settings."
             );
         }
 
@@ -66,7 +66,7 @@ public class Group extends Subject {
     public void updateInviteCode(String newCode, Membership actor) {
         if (!actor.isAdmin()) {
             throw new UnauthorizedException(
-                    "Solo gli amministratori possono generare codici invito."
+                    "Only admins can generate invite codes."
             );
         }
 
@@ -79,15 +79,15 @@ public class Group extends Subject {
 
     public void addMembership(Membership newMember, Membership actor) {
         if (!canInviteMember(actor)) {
-            throw new UnauthorizedException("Solo gli admin possono aggiungere membri");
+            throw new UnauthorizedException("Only admins can invite new members.");
         }
 
         if (!this.isActive) {
-            throw new DomainException("Gruppo non attivo");
+            throw new DomainException("Inactive group");
         }
 
         if (newMember == null) {
-            throw new IllegalArgumentException("Membership non può essere null");
+            throw new IllegalArgumentException("Membership cannot be null");
         }
 
         // Evita duplicati: rimuove se già presente, poi aggiunge
@@ -104,7 +104,7 @@ public class Group extends Subject {
     public void removeMembership(Membership target, Membership actor) {
         if (!canRemoveMember(actor, target)) {
             throw new UnauthorizedException(
-                    "Non hai i permessi per rimuovere questo membro."
+                    "You do not have permission to remove this member."
             );
         }
 
