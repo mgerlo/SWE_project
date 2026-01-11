@@ -1,5 +1,4 @@
-// language: java
-package com.splitmanager.service;
+package com.splitmanager.businesslogic.service;
 
 import com.splitmanager.dao.ConnectionManager;
 import com.splitmanager.dao.SettlementDAO;

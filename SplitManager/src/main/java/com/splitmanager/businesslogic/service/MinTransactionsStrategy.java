@@ -1,5 +1,4 @@
-// language: java
-package com.splitmanager.service.strategy;
+package com.splitmanager.businesslogic.service;
 
 import com.splitmanager.domain.accounting.Settlement;
 import com.splitmanager.domain.registry.Membership;

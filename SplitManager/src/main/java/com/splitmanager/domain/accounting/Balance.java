@@ -42,7 +42,7 @@ public class Balance {
 
         this.balanceId = balanceId;
         this.membership = Objects.requireNonNull(membership);
-        this.netBalance = netBalance != null ? netBalance : BigDecimal.ZERO;
+        this.netBalance = netBalance != null ? netBalance : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         this.lastUpdated = lastUpdated != null ? lastUpdated : LocalDateTime.now();
     }
 

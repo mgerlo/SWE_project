@@ -1,5 +1,4 @@
-// language: java
-package com.splitmanager.service;
+package com.splitmanager.businesslogic.service;
 
 import com.splitmanager.dao.ConnectionManager;
 import com.splitmanager.dao.GroupDAO;
@@ -96,7 +95,7 @@ public class GroupService {
             membershipDAO.update(adminMembership);
 
             // 3. Crea Balance per l'admin
-            Balance adminBalance = new Balance(adminMembership);
+            Balance adminBalance = new Balance(null, adminMembership);
             balanceDAO.save(adminBalance);
             adminMembership.setBalance(adminBalance);
 
@@ -165,7 +164,7 @@ public class GroupService {
             // Lo stato è WAITING_ACCEPTANCE per default
 
             // Crea Balance per il nuovo membro
-            Balance balance = new Balance(membership);
+            Balance balance = new Balance(null, membership);
             balanceDAO.save(balance);
             membership.setBalance(balance);
 

@@ -5,6 +5,7 @@ import com.splitmanager.domain.events.EventType;
 import com.splitmanager.domain.events.Subject;
 import com.splitmanager.domain.registry.Group;
 import com.splitmanager.domain.registry.Membership;
+import com.splitmanager.exception.DomainException;
 import com.splitmanager.exception.UnauthorizedException;
 
 import java.math.BigDecimal;
@@ -127,7 +128,7 @@ public class Expense extends Subject {
 
         // Controllo autorizzazioni
         if (!isEditableBy(modifiedBy)) {
-            throw new UnauthorizedException("Solo admin o creatore possono modificare la spesa");
+            throw new UnauthorizedException("Only admin or creator can modify the expense");
         }
 
         if (isDeleted) {
@@ -154,7 +155,7 @@ public class Expense extends Subject {
      */
     public void markAsDeleted(Membership deletedBy) {
         if (!canBeDeletedBy(deletedBy)) {
-            throw new UnauthorizedException("Solo admin o creatore possono eliminare la spesa");
+            throw new UnauthorizedException("Only admin or creator can delete the expense");
         }
 
         if (isDeleted) {
@@ -183,7 +184,7 @@ public class Expense extends Subject {
 
     private void setAmount(BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("L'importo deve essere positivo");
+            throw new DomainException("Amount must be positive.");
         }
         this.amount = amount;
     }

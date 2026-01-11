@@ -1,5 +1,4 @@
-// language: java
-package com.splitmanager.service;
+package com.splitmanager.businesslogic.service;
 
 import com.splitmanager.dao.ConnectionManager;
 import com.splitmanager.dao.ExpenseDAO;
@@ -107,10 +106,8 @@ public class ExpenseService {
             // FASE 1: VALIDAZIONE E CARICAMENTO ENTITÀ
             // ==========================================
 
-            // UC5 Alternative 4a: validazione importo
-            if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new DomainException("Amount must be positive");
-            }
+
+            // NOTA: la validazione di 'amount' è delegata al Domain (Expense)
 
             // UC5 Alternative 5a: validazione campi obbligatori
             if (description == null || description.trim().isEmpty()) {
@@ -184,7 +181,6 @@ public class ExpenseService {
             // ==========================================
             // FASE 3: WIRING DEL PATTERN OBSERVER
             // ==========================================
-            // QUESTO È IL CUORE DEL PATTERN OBSERVER!
             // Gli Observer non sono persistiti, quindi il Service
             // deve collegarli manualmente dopo ogni load dal DB
 
@@ -218,8 +214,7 @@ public class ExpenseService {
                         shareAmount
                 );
 
-                // Aggiunge all'expense
-                // IMPORTANTE: questo scatena notifyObservers()!
+                // Aggiunge all'expense -> questo scatena notifyObservers()
                 // Gli Observer (Membership) ricevono l'evento EXPENSE_CREATED
                 expense.addParticipant(expenseParticipant);
 
@@ -241,7 +236,7 @@ public class ExpenseService {
 
                 if (balance == null) {
                     // Fallback: crea Balance se non esiste
-                    balance = new Balance(participant);
+                    balance = new Balance(null, participant);
                     balance = balanceDAO.save(balance);
                     participant.setBalance(balance);
                 }

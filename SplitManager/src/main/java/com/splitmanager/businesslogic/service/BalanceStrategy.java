@@ -1,5 +1,4 @@
-// language: java
-package com.splitmanager.service.strategy;
+package com.splitmanager.businesslogic.service;
 
 import com.splitmanager.domain.accounting.Settlement;
 import com.splitmanager.domain.registry.Membership;
@@ -14,12 +13,14 @@ import java.util.Map;
  * Definisce il contratto per diversi algoritmi che ottimizzano
  * la riconciliazione dei debiti all'interno di un gruppo.
  *
- * Diverse implementazioni possono fornire criteri di ottimizzazione differenti:
+ * Diverse implementazioni possono fornire criteri di ottimizzazione differenti
+ * esempi:
  * - Minimizzare il numero di transazioni (MinTransactionsStrategy)
  * - Minimizzare l'importo massimo per transazione
  * - Bilanciare gli importi delle transazioni in modo uniforme
  * - ecc.
  */
+
 public interface BalanceStrategy {
 
     /**

@@ -1,5 +1,4 @@
-// language: java
-package com.splitmanager.service;
+package com.splitmanager.businesslogic.service;
 
 import com.splitmanager.dao.UserDAO;
 import com.splitmanager.domain.registry.User;
