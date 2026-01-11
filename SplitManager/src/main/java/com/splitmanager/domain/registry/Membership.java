@@ -19,13 +19,13 @@ public class Membership implements Observer {
     public Membership(Long membershipId, User user, Group group, Role role) {
         // Validazioni di base
         if (user == null) {
-            throw new IllegalArgumentException("User non può essere null");
+            throw new IllegalArgumentException("User cannot be null");
         }
         if (group == null) {
-            throw new IllegalArgumentException("Group non può essere null");
+            throw new IllegalArgumentException("Group cannot be null");
         }
         if (role == null) {
-            throw new IllegalArgumentException("Role non può essere null");
+            throw new IllegalArgumentException("Role cannot be null");
         }
 
         this.membershipId = membershipId;
@@ -82,7 +82,7 @@ public class Membership implements Observer {
     @Override
     public void onDomainEvent(DomainEvent event) {
         String memberName = user != null ? user.getFullName() : "Unknown";
-        System.out.printf("[%s] Ricevuto evento: %s da source=%d%n",
+        System.out.printf("[%s] Event received: %s from source=%d%n",
                 memberName, event.getType(), event.getSourceId());
 
         // Il Service aggiorna i Balance, qui solo notifica

@@ -13,13 +13,13 @@ public class User {
     public User(Long userId, String email, String fullName, String passwordHash) {
         // validazioni di base
         if (email == null || email.trim().isEmpty()) {
-            throw new IllegalArgumentException("Email non può essere vuota");
+            throw new IllegalArgumentException("Email cannot be empty");
         }
         if (fullName == null || fullName.trim().isEmpty()) {
-            throw new IllegalArgumentException("Nome completo non può essere vuoto");
+            throw new IllegalArgumentException("Full name cannot be empty");
         }
         if (passwordHash == null || passwordHash.trim().isEmpty()) {
-            throw new IllegalArgumentException("password hash non può essere vuoto");
+            throw new IllegalArgumentException("Password cannot be empty");
         }
         
         this.userId = userId;

@@ -52,7 +52,7 @@ public class ExpenseParticipant {
 
     private void setShareAmount(BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("La quota deve essere positiva");
+            throw new IllegalArgumentException("Share amount must be positive");
         }
         this.shareAmount = amount;
     }
