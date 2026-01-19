@@ -1,4 +1,4 @@
 package com.splitmanager.businesslogic.controller;
 
-public class AuthController {
+public class ExpenseController {
 }
