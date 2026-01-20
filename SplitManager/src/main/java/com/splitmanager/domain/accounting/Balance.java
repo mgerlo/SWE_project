@@ -130,6 +130,12 @@ public class Balance {
     public LocalDateTime getLastUpdated() {
         return lastUpdated;
     }
+
+    //Setter aggiuntivo per DAO
+    public void setLastUpdated(LocalDateTime lastUpdated) {
+        this.lastUpdated = lastUpdated;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
