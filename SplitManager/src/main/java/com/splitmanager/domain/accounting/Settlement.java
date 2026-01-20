@@ -17,7 +17,7 @@ import java.util.Objects;
  */
 public class Settlement extends Subject {
 
-    private final Long settlementId;
+    private Long settlementId; // Tolto final per permettere al DAO di settarlo
     private final Group group;
     private final Membership payer;
     private final Membership receiver;
@@ -137,6 +137,12 @@ public class Settlement extends Subject {
     public BigDecimal getAmount() { return amount; }
     public LocalDateTime getDate() { return date; }
     public PaymentStatus getStatus() { return status; }
+
+    // --- Setter mancante per DAO ---
+
+    public void setSettlementId(Long settlementId) {
+        this.settlementId = settlementId;
+    }
 
     // --- Utility ---
 

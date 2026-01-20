@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
  * It defines who paid, who participates and how the amount is shared. */
 public class Expense extends Subject {
 
-    private final Long expenseId;
+    private Long expenseId; // Tolto final per DAO
     private final Group group;
     private final Membership payer;
     private final Membership createdBy;
@@ -216,6 +216,15 @@ public class Expense extends Subject {
     public LocalDateTime getLastModifiedDate() { return lastModifiedDate; }
     public boolean isDeleted() { return isDeleted; }
 
+    // --- Setter mancanti per DAO ---
+
+    public void setExpenseId(Long expenseId) {
+        this.expenseId = expenseId;
+    }
+
+    public void setLastModifiedDate(LocalDateTime lastModifiedDate) {
+        this.lastModifiedDate = lastModifiedDate;
+    }
 
     @Override
     public String toString() {

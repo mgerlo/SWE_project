@@ -192,6 +192,28 @@ public class Group extends Subject {
         this.description = description;
     }
 
+    // --- Setter aggiuntivi per DAO ---
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }   
+    
+    public void setInviteCode(String inviteCode) {
+        this.inviteCode = inviteCode;
+    }
+
+    public void setInviteCodeExpiry(LocalDateTime inviteCodeExpiry) {
+        this.inviteCodeExpiry = inviteCodeExpiry;
+    }
+    
+    public void setActive(boolean active) {
+        this.isActive = active;
+    }
+
     @Override
     public String toString() {
         return String.format("Group[id=%d, name=%s, currency=%s, active=%b]",
