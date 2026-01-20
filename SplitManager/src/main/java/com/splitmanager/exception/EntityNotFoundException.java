@@ -13,14 +13,14 @@ public class EntityNotFoundException extends DomainException {
     private final Object entityId;
 
     public EntityNotFoundException(String entityName, Object entityId) {
-        super(String.format("%s con ID '%s' non trovato", entityName, entityId));
+        super(String.format("%s with ID '%s' not found", entityName, entityId));
         this.entityName = entityName;
         this.entityId = entityId;
     }
 
     // Costruttore alternativo per email
     public EntityNotFoundException(String entityName, String identifier, String identifierType) {
-        super(String.format("%s con %s '%s' non trovato", entityName, identifierType, identifier));
+        super(String.format("%s with %s '%s' not found", entityName, identifierType, identifier));
         this.entityName = entityName;
         this.entityId = identifier;
     }

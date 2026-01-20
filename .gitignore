@@ -1,0 +1,16 @@
+# Maven (File compilati)
+target/
+*.jar
+*.war
+*.ear
+
+# IntelliJ (File dell'IDE)
+.idea/
+*.iml
+*.iws
+out/
+
+# Log e Sistema
+*.log
+.DS_Store
+Thumbs.db

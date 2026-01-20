@@ -12,7 +12,7 @@ CREATE TABLE users (
     user_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(100) NOT NULL UNIQUE,
     full_name VARCHAR(100) NOT NULL,
-    password VARCHAR(255) NOT NULL
+    password_hash VARCHAR(255) NOT NULL
 );
 
 -- 2. Tabella GROUP
@@ -35,7 +35,7 @@ CREATE TABLE memberships (
     user_id BIGINT NOT NULL,
     group_id BIGINT NOT NULL,
     role VARCHAR(20) NOT NULL,   -- 'ADMIN', 'MEMBER'
-    status VARCHAR(20) NOT NULL, -- 'ACTIVE', 'PENDING'
+    status VARCHAR(20) NOT NULL, -- 'ACTIVE', 'WAITING_ACCEPTANCE', 'REMOVED'
     FOREIGN KEY (user_id) REFERENCES users(user_id),
     FOREIGN KEY (group_id) REFERENCES groups(group_id)
 );

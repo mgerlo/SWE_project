@@ -21,10 +21,10 @@ public class Group extends Subject {
     public Group(Long groupId, String name, String currency) {
         // validazioni di base
         if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("Nome gruppo non può essere vuoto");
+            throw new IllegalArgumentException("Group name cannot be empty");
         }
         if (currency == null || currency.trim().isEmpty()) {
-            throw new IllegalArgumentException("Valuta non può essere vuota");
+            throw new IllegalArgumentException("Currency cannot be empty");
         }
         this.groupId = groupId;
         this.name = name;
@@ -49,7 +49,7 @@ public class Group extends Subject {
         // Controllo permessi: solo ADMIN può modificare
         if (!actor.isAdmin()) {
             throw new UnauthorizedException(
-                    "Solo gli amministratori possono modificare le impostazioni del gruppo."
+                    "Only admins can update group settings."
             );
         }
 
@@ -66,7 +66,7 @@ public class Group extends Subject {
     public void updateInviteCode(String newCode, Membership actor) {
         if (!actor.isAdmin()) {
             throw new UnauthorizedException(
-                    "Solo gli amministratori possono generare codici invito."
+                    "Only admins can generate invite codes."
             );
         }
 
@@ -77,20 +77,34 @@ public class Group extends Subject {
         notifyObservers(createEvent(EventType.INVITE_SENT, actor, Map.of("code", newCode)));
     }
 
-    public void addMembership(Membership membership) {
-        if (!this.isActive) {
-            throw new DomainException(
-                    "Impossibile aggiungere membri a un gruppo disattivato."
-            );
+    public void addMembership(Membership newMember, Membership actor) {
+        if (!canInviteMember(actor)) {
+            throw new UnauthorizedException("Only admins can invite new members.");
         }
 
-        notifyObservers(createEvent(EventType.MEMBER_JOINED, membership, Map.of("joinedMemberId", membership.getMembershipId())));
+        if (!this.isActive) {
+            throw new DomainException("Inactive group");
+        }
+
+        if (newMember == null) {
+            throw new IllegalArgumentException("Membership cannot be null");
+        }
+
+        // Evita duplicati: rimuove se già presente, poi aggiunge
+        this.detach(newMember);
+        this.attach(newMember);
+
+        notifyObservers(createEvent(
+                EventType.MEMBER_JOINED,
+                actor,
+                Map.of("newMemberId", newMember.getMembershipId())
+        ));
     }
 
     public void removeMembership(Membership target, Membership actor) {
         if (!canRemoveMember(actor, target)) {
             throw new UnauthorizedException(
-                    "Non hai i permessi per rimuovere questo membro."
+                    "You do not have permission to remove this member."
             );
         }
 
@@ -103,6 +117,7 @@ public class Group extends Subject {
         this.isActive = false;
         // Nessuno riceverà più notifiche future dopo questo evento
     }
+
 
     // --- Controlli di Permessi ---
 
@@ -175,6 +190,28 @@ public class Group extends Subject {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    // --- Setter aggiuntivi per DAO ---
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }   
+    
+    public void setInviteCode(String inviteCode) {
+        this.inviteCode = inviteCode;
+    }
+
+    public void setInviteCodeExpiry(LocalDateTime inviteCodeExpiry) {
+        this.inviteCodeExpiry = inviteCodeExpiry;
+    }
+    
+    public void setActive(boolean active) {
+        this.isActive = active;
     }
 
     @Override

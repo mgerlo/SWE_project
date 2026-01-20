@@ -42,7 +42,7 @@ public class Balance {
 
         this.balanceId = balanceId;
         this.membership = Objects.requireNonNull(membership);
-        this.netBalance = netBalance != null ? netBalance : BigDecimal.ZERO;
+        this.netBalance = netBalance != null ? netBalance : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         this.lastUpdated = lastUpdated != null ? lastUpdated : LocalDateTime.now();
     }
 
@@ -96,7 +96,7 @@ public class Balance {
 
     private void validateAmount(BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("L'importo deve essere positivo");
+            throw new IllegalArgumentException("Amount must be positive.");
         }
     }
 
@@ -130,6 +130,12 @@ public class Balance {
     public LocalDateTime getLastUpdated() {
         return lastUpdated;
     }
+
+    //Setter aggiuntivo per DAO
+    public void setLastUpdated(LocalDateTime lastUpdated) {
+        this.lastUpdated = lastUpdated;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
