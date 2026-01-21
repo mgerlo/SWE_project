@@ -61,7 +61,7 @@ public class UserDAO {
                 if (keys.next()) {
                     Long userId = keys.getLong(1);
                     // Crea nuovo User con ID
-                    return new User(userId, user.getEmail(), user.getFullName(), user.getPassword());
+                    return new User(userId, user.getEmail(), user.getFullName(), user.getPasswordHash());
                 } else {
                     throw new DAOException("No ID obtained for new user", null);
                 }
