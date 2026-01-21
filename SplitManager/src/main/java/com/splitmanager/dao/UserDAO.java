@@ -85,9 +85,9 @@ public class UserDAO {
         String sql = "UPDATE users SET full_name = ?, password_hash = ? WHERE user_id = ?";
         
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setString(1, user.getFullName());
-            stmt.setString(2, user.getPassword());
-            stmt.setLong(3, user.getUserId());
+            stmt.setString(1, updatedUser.getFullName());
+            stmt.setString(2, updatedUser.getPasswordHash()); 
+            stmt.setLong(3, updatedUser.getUserId());
             
             int rows = stmt.executeUpdate();
             if (rows == 0) {
