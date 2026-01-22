@@ -88,7 +88,6 @@ public class SettlementDAO {
             .orElseThrow(() -> new DAOException("Receiver not found: " + receiverMembershipId, null));
         
         Settlement settlement = new Settlement(
-            null,
             group,
             payer,
             receiver,
