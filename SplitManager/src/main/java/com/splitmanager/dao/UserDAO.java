@@ -91,7 +91,7 @@ public class UserDAO {
             
             int rows = stmt.executeUpdate();
             if (rows == 0) {
-                throw new DAOException("User not found: " + user.getUserId(), null);
+                throw new DAOException("User not found: " + updatedUser.getUserId(), null);
             }
         } catch (SQLException e) {
             throw new DAOException("Error updating user", e);
