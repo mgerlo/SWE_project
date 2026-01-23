@@ -4,6 +4,7 @@ import com.splitmanager.dao.ConnectionManager;
 import com.splitmanager.dao.GroupDAO;
 import com.splitmanager.dao.MembershipDAO;
 import com.splitmanager.dao.BalanceDAO;
+import com.splitmanager.dao.UserDAO;
 import com.splitmanager.domain.accounting.Balance;
 import com.splitmanager.domain.registry.*;
 import com.splitmanager.exception.DomainException;
@@ -28,11 +29,13 @@ public class GroupService {
     private final GroupDAO groupDAO;
     private final MembershipDAO membershipDAO;
     private final BalanceDAO balanceDAO;
+    private final UserDAO userDAO;
 
     public GroupService() {
         this.groupDAO = new GroupDAO();
         this.membershipDAO = new MembershipDAO();
         this.balanceDAO = new BalanceDAO();
+        this.userDAO = new UserDAO();
     }
 
     // Costruttore per dependency injection nei test
@@ -40,6 +43,7 @@ public class GroupService {
         this.groupDAO = groupDAO;
         this.membershipDAO = membershipDAO;
         this.balanceDAO = balanceDAO;
+        this.userDAO = new UserDAO();
     }
 
     /**
@@ -54,16 +58,13 @@ public class GroupService {
      * @throws DomainException se dati non validi (UC3 Alternative 5a)
      */
     public Group createGroup(Long userId, String name, String description, String currency) {
-        // Validazioni (UC3 Alternative 5a)
+        // Validazioni base
         if (name == null || name.trim().isEmpty()) {
             throw new DomainException("Group name is required");
         }
-
         if (currency == null || currency.trim().isEmpty()) {
             throw new DomainException("Currency is required");
         }
-
-        // Validazione valuta (deve essere codice ISO 4217)
         if (!currency.matches("[A-Z]{3}")) {
             throw new DomainException("Invalid currency (use ISO code: EUR, USD, GBP, ...)");
         }
@@ -73,28 +74,33 @@ public class GroupService {
         try {
             connMgr.beginTransaction();
 
-            // 1. Crea il gruppo
-            Group group = new Group(null, name, currency);
-            if (description != null && !description.trim().isEmpty()) {
-                group.setDescription(description);
+            // Recupera utente (validazione esistenza)
+            userDAO.findById(userId).orElseThrow(() -> new EntityNotFoundException("User", userId));
+
+            // Crea gruppo tramite DAO (gestisce anche codice invito e scadenza)
+            Group group = groupDAO.create(userId, name, currency);
+
+            // Controllo ID
+            if (group.getGroupId() == null) {
+                throw new DomainException("Critical error: group ID not returned by DB");
             }
 
-            // Genera codice invito
-            String inviteCode = generateInviteCode();
-            group.updateInviteCode(inviteCode, null); // null perché non c'è ancora un admin
+            // Imposta descrizione se fornita
+            if (description != null && !description.trim().isEmpty()) {
+                group.setDescription(description);
+                groupDAO.update(group);
+            }
 
-            group = groupDAO.save(group);
-
-            // 2. Crea Membership per il creatore come ADMIN
+            // Crea Membership ADMIN
             Membership adminMembership = membershipDAO.createMembership(
                     userId,
                     group.getGroupId(),
                     Role.ADMIN
             );
-            adminMembership.activate(); // Subito attivo
+            adminMembership.activate();
             membershipDAO.update(adminMembership);
 
-            // 3. Crea Balance per l'admin
+            // Crea Balance per admin
             Balance adminBalance = new Balance(null, adminMembership);
             balanceDAO.save(adminBalance);
             adminMembership.setBalance(adminBalance);
@@ -325,6 +331,16 @@ public class GroupService {
      */
     public List<Membership> getGroupMembers(Long groupId) {
         return membershipDAO.findByGroup(groupId);
+    }
+
+    /**
+     * Ottiene tutte le membership di un utente (tutti i gruppi a cui appartiene).
+     *
+     * @param userId ID dell'utente
+     * @return lista di Membership dell'utente
+     */
+    public List<Membership> getUserMemberships(Long userId) {
+        return membershipDAO.findByUser(userId);
     }
 
     // --- Helper privati ---

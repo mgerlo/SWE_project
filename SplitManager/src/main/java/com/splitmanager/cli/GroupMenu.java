@@ -146,7 +146,7 @@ public class GroupMenu {
         try {
             // Get all memberships for current user
             Long userId = session.getCurrentUser().getUserId();
-            List<Membership> memberships = groupService.getGroupMembers(userId);
+            List<Membership> memberships = groupService.getUserMemberships(userId);
 
             if (memberships.isEmpty()) {
                 input.printInfo("You are not a member of any group yet.");
