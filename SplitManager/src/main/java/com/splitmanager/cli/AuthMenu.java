@@ -1,6 +1,7 @@
 package com.splitmanager.cli;
 
 import com.splitmanager.businesslogic.controller.AuthController;
+import com.splitmanager.businesslogic.controller.NavigationManager;
 import com.splitmanager.businesslogic.controller.UserSession;
 import com.splitmanager.businesslogic.service.UserService;
 
@@ -24,7 +25,8 @@ public class AuthMenu {
 
         // Initialize services and controllers
         UserService userService = new UserService();
-        this.authController = new AuthController(userService, session, null);
+        NavigationManager navigator = NavigationManager.getInstance();
+        this.authController = new AuthController(userService, session, navigator);
     }
 
     /**

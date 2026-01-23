@@ -14,7 +14,7 @@ public class ConnectionManager {
     private ConnectionManager() {
         try {
             connection = DriverManager.getConnection(
-                "jdbc:h2:mem:splitmanager;DB_CLOSE_DELAY=-1;INIT=RUNSCRIPT FROM 'schema.sql'",
+                "jdbc:h2:mem:splitmanager;DB_CLOSE_DELAY=-1;INIT=RUNSCRIPT FROM 'classpath:schema.sql'",
                 "sa",
                 ""
             );
