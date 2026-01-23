@@ -2,6 +2,7 @@ package com.splitmanager.cli;
 
 import com.splitmanager.businesslogic.controller.ExpenseController;
 import com.splitmanager.businesslogic.controller.UserSession;
+import com.splitmanager.businesslogic.controller.NavigationManager;
 import com.splitmanager.businesslogic.service.ExpenseService;
 import com.splitmanager.businesslogic.service.GroupService;
 import com.splitmanager.domain.accounting.Category;
@@ -32,7 +33,8 @@ public class ExpenseMenu {
         this.session = UserSession.getInstance();
         ExpenseService expenseService = new ExpenseService();
         this.groupService = new GroupService();
-        this.expenseController = new ExpenseController(expenseService, session, null);
+        NavigationManager navigator = NavigationManager.getInstance();
+        this.expenseController = new ExpenseController(expenseService, session, navigator);
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.splitmanager.cli;
 
 import com.splitmanager.businesslogic.controller.GroupController;
+import com.splitmanager.businesslogic.controller.NavigationManager;
 import com.splitmanager.businesslogic.controller.UserSession;
 import com.splitmanager.businesslogic.service.GroupService;
 import com.splitmanager.domain.registry.Group;
@@ -27,7 +28,8 @@ public class GroupMenu {
         this.input = input;
         this.session = UserSession.getInstance();
         this.groupService = new GroupService();
-        this.groupController = new GroupController(groupService, session, null);
+        NavigationManager navigator = NavigationManager.getInstance();
+        this.groupController = new GroupController(groupService, session, navigator);
     }
 
     /**
@@ -144,7 +146,7 @@ public class GroupMenu {
         try {
             // Get all memberships for current user
             Long userId = session.getCurrentUser().getUserId();
-            List<Membership> memberships = groupService.getGroupMembers(userId);
+            List<Membership> memberships = groupService.getUserMemberships(userId);
 
             if (memberships.isEmpty()) {
                 input.printInfo("You are not a member of any group yet.");

@@ -122,7 +122,7 @@ public class Group extends Subject {
     // --- Controlli di Permessi ---
 
     public boolean canInviteMember(Membership actor) {
-        return this.isActive && actor.isActive();
+        return this.isActive && actor.isActive() && actor.isAdmin();
     }
 
     public boolean canRemoveMember(Membership actor, Membership target) {

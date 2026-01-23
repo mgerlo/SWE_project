@@ -5,6 +5,7 @@ public enum Category {
 
     FOOD,
     TRANSPORT,
+    SHOPPING,
     ACCOMMODATION,
     ENTERTAINMENT,
     UTILITIES,
