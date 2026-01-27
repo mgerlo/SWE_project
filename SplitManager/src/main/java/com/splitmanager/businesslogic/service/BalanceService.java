@@ -77,28 +77,17 @@ public class BalanceService {
      * @return Mappa da Membership al loro saldo netto
      * @throws EntityNotFoundException se il gruppo non viene trovato
      */
+    /**
+     * UC6 - Visualizza saldi del gruppo
+     */
     public Map<Membership, BigDecimal> getGroupBalances(Long groupId) {
-        // Verifica che il gruppo esista
-        Group group = groupDAO.findById(groupId)
+        // Verifica esistenza gruppo
+        groupDAO.findById(groupId)
                 .orElseThrow(() -> new EntityNotFoundException("Group", groupId));
 
-        // Carica tutti i membri con i rispettivi balance
-        List<Membership> members = membershipDAO.findByGroup(groupId);
+        Map<Membership, BigDecimal> activeBalances = balanceDAO.findByGroup(groupId);
 
-        Map<Membership, BigDecimal> balances = new HashMap<>();
-
-        for (Membership member : members) {
-            Balance balance = member.getBalance();
-
-            if (balance != null) {
-                balances.put(member, balance.getAmount());
-            } else {
-                // Se non esiste un balance (non dovrebbe accadere), consideralo zero
-                balances.put(member, BigDecimal.ZERO);
-            }
-        }
-
-        return balances;
+        return activeBalances;
     }
 
     /**
