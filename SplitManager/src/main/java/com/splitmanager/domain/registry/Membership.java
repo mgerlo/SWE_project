@@ -82,8 +82,13 @@ public class Membership implements Observer {
     @Override
     public void onDomainEvent(DomainEvent event) {
         String memberName = user != null ? user.getFullName() : "Unknown";
-        System.out.printf("[%s] Event received: %s from source=%d%n",
-                memberName, event.getType(), event.getSourceId());
+
+        String sourceDescription = (this.group != null)
+                ? "Group '" +this.group.getName() + "' "
+                : "Source ID " + event.getSourceId();
+
+        System.out.printf("[%s] Event received: %s from %s%n",
+                memberName, event.getType(), sourceDescription);
 
         // Il Service aggiorna i Balance, qui solo notifica
     }

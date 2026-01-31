@@ -65,10 +65,7 @@ class E2ETest {
         userService = new UserService(userDAO);
         groupService = new GroupService(groupDAO, membershipDAO, balanceDAO);
         ExpenseService expenseService = new ExpenseService(expenseDAO, membershipDAO, balanceDAO, groupDAO);
-
-        // BalanceService: inizializzato con le dipendenze corrette
         BalanceService balanceService = new BalanceService(balanceDAO, membershipDAO, groupDAO, new MinTransactionsStrategy());
-
         SettlementService settlementService = new SettlementService(settlementDAO, membershipDAO, balanceDAO, groupDAO);
 
         // 4. Setup Sessione
@@ -93,11 +90,13 @@ class E2ETest {
     }
 
     @Test
-    @DisplayName("Complete Flow: Create Group → Invite → Join → Approve → Add Expense → View Balances → Settle Debt")
+    @DisplayName("E2E Test: Full lifecycle from Group Creation to Debt Settlement")
     void testCompleteUserFlow() {
 
         // ===== 1. Alice crea gruppo =====
+        System.out.println("1. Alice signs up and creates group 'Vacation'");
         authController.handleSignUp("Alice", "alice@test.com", "password123");
+
         authController.handleLogin("alice@test.com", "password123");
         groupController.createGroup("Vacation", "EUR");
         assertFalse(navStub.hasError);
@@ -114,9 +113,9 @@ class E2ETest {
         // Estraiamo il codice invito dal messaggio di successo
         String inviteCode = extractInviteCodeFromMessage(navStub.lastMessage);
         assertNotNull(inviteCode, "Invite code should be generated");
-        System.out.println("Invite Code Generated: " + inviteCode);
 
         // ===== 2. Bob si unisce al gruppo =====
+        System.out.println("2. Bob joins using the invite code");
         authController.handleLogout();
 
         authController.handleSignUp("Bob", "bob@test.com", "password456");
@@ -126,6 +125,7 @@ class E2ETest {
         assertFalse(navStub.hasError, "Join group should succeed");
 
         // ===== 3. Alice approva Bob =====
+        System.out.println("3. Alice approves Bob");
         authController.handleLogout();
         authController.handleLogin("alice@test.com", "password123");
         groupController.openGroup(group);
@@ -147,9 +147,7 @@ class E2ETest {
                 .filter(m -> m.getUser().getFullName().equals("Bob"))
                 .findFirst().orElseThrow().getMembershipId();
 
-        System.out.println("Alice Membership ID: " + currentAliceMembershipId);
-        System.out.println("Bob Membership ID: " + currentBobMembershipId);
-
+        System.out.println("4. Alice adds expense (100.00 EUR)");
         expenseController.createExpense(
                 currentAliceMembershipId,
                 new BigDecimal("100.00"),
@@ -163,15 +161,11 @@ class E2ETest {
         groupController.openGroup(group);
 
         // ===== 5. Verifica saldi =====
+        System.out.println("5. Verifying balances");
         Map<Membership, BigDecimal> balances = balanceController.viewBalances();
         System.out.println("Number of balances: " + balances.size());
 
-        // Debug: stampiamo tutti i membri e i loro saldi
-        balances.forEach((membership, balance) -> {
-            System.out.println("Member: " + membership.getUser().getFullName() +
-                    " (ID: " + membership.getMembershipId() + ") -> Balance: " + balance);
-        });
-
+        // Recupera i saldi specifici per le asserzioni
         BigDecimal aliceBalance = balances.entrySet().stream()
                 .filter(e -> e.getKey().getMembershipId().equals(currentAliceMembershipId))
                 .map(Map.Entry::getValue).findFirst().orElseThrow();
@@ -180,10 +174,12 @@ class E2ETest {
                 .filter(e -> e.getKey().getMembershipId().equals(currentBobMembershipId))
                 .map(Map.Entry::getValue).findFirst().orElseThrow();
 
+        // Verifica formale
         assertEquals(new BigDecimal("50.00"), aliceBalance);
         assertEquals(new BigDecimal("-50.00"), bobBalance);
 
         // ===== 6. Bob salda il debito =====
+        System.out.println("6. Bob settles debt (50.00 EUR)");
         authController.handleLogout();
         authController.handleLogin("bob@test.com", "password456");
         groupController.openGroup(group);
@@ -195,6 +191,7 @@ class E2ETest {
         balanceController.settleDebt(currentBobMembershipId, currentAliceMembershipId, new BigDecimal("50.00"));
 
         // ===== 7. Alice conferma =====
+        System.out.println("7. Alice confirms payment");
         authController.handleLogout();
         authController.handleLogin("alice@test.com", "password123");
         groupController.openGroup(group);
@@ -207,7 +204,7 @@ class E2ETest {
         // ===== 8. Verifica Finale =====
         assertTrue(balanceController.isGroupSettled(), "Group should be fully settled");
 
-        System.out.println("✓ Test E2E completed successfully!");
+        System.out.println("--- TEST PASSED ---");
     }
 
     private void cleanDb() throws SQLException {
@@ -245,30 +242,50 @@ class E2ETest {
     static class StubNavigator implements Navigator {
         public boolean hasError = false;
         public String lastMessage = "";
+        public String currentPage = "NONE";
 
         @Override
         public void showSuccess(String message) {
             this.lastMessage = message;
             this.hasError = false;
-            System.out.println("[UI STUB] Success: " + message);
+            System.out.println("      [INFO]    " + message);
         }
 
         @Override
         public void showError(String message) {
             this.lastMessage = message;
             this.hasError = true;
-            System.err.println("[UI STUB] Error: " + message);
+            System.err.println("      [ERROR]   " + message);
         }
 
         @Override
         public boolean showConfirmation(String message) {
-            System.out.println("[UI STUB] Auto-confirming: " + message);
+            System.out.println("      [PROMPT]  " + message + " -> YES");
             return true;
         }
 
-        @Override public void navigateToLogin() { System.out.println("[UI STUB] Go Login"); }
-        @Override public void navigateToRegister() { System.out.println("[UI STUB] Go Register"); }
-        @Override public void navigateToHome() { System.out.println("[UI STUB] Go Home"); }
-        @Override public void navigateToGroupDetails(Group group) { System.out.println("[UI STUB] Go Group: " + group.getName()); }
+        @Override
+        public void navigateToLogin() {
+            this.currentPage = "LOGIN";
+            System.out.println("   -> Go to Login");
+        }
+
+        @Override
+        public void navigateToRegister() {
+            this.currentPage = "REGISTER";
+            System.out.println("   -> Go to Register");
+        }
+
+        @Override
+        public void navigateToHome() {
+            this.currentPage = "HOME";
+            System.out.println("   -> Go to Home");
+        }
+
+        @Override
+        public void navigateToGroupDetails(Group group) {
+            this.currentPage = "GROUP_DETAILS";
+            System.out.println("   -> Go to Group: " + group.getName());
+        }
     }
 }
