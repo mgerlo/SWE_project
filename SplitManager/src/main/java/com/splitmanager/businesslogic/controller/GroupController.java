@@ -6,6 +6,8 @@ import com.splitmanager.exception.DomainException;
 import com.splitmanager.exception.EntityNotFoundException;
 import com.splitmanager.exception.UnauthorizedException;
 
+import com.splitmanager.businesslogic.controller.Navigator;
+
 /**
  * Controller that handles group-related operations.
  * Manages group creation, joining, settings, and member management.
@@ -15,7 +17,7 @@ public class GroupController {
     // Dependencies
     private final GroupService groupService;
     private final UserSession session;
-    private final NavigationManager navigator;
+    private final Navigator navigator; //uses Navigator interface
 
     // --- Constructor ---
 
@@ -28,7 +30,7 @@ public class GroupController {
      */
     public GroupController(GroupService groupService,
                            UserSession session,
-                           NavigationManager navigator) {
+                           Navigator navigator) { //inject Navigator dependency
 
         if (groupService == null) {
             throw new IllegalArgumentException("GroupService cannot be null");
@@ -501,7 +503,7 @@ public class GroupController {
      *
      * @return the NavigationManager instance
      */
-    public NavigationManager getNavigator() {
+    public Navigator getNavigator() {
         return navigator;
     }
 

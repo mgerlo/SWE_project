@@ -22,6 +22,7 @@ public class BalanceController {
     private final BalanceService balanceService;
     private final SettlementService settlementService;
     private final UserSession session;
+    private final Navigator navigator;
 
     // --- Constructor ---
 
@@ -31,10 +32,12 @@ public class BalanceController {
      * @param balanceService the balance service for balance operations
      * @param settlementService the settlement service for debt settlement operations
      * @param session the user session manager
+     * @param navigator the navigation manager (Interface used for DI)
      */
     public BalanceController(BalanceService balanceService,
                              SettlementService settlementService,
-                             UserSession session) {
+                             UserSession session,
+                             Navigator navigator) {
 
         if (balanceService == null) {
             throw new IllegalArgumentException("BalanceService cannot be null");
@@ -45,38 +48,26 @@ public class BalanceController {
         if (session == null) {
             throw new IllegalArgumentException("UserSession cannot be null");
         }
+        if (navigator == null) {
+            throw new IllegalArgumentException("Navigator cannot be null");
+        }
 
         this.balanceService = balanceService;
         this.settlementService = settlementService;
         this.session = session;
+        this.navigator = navigator;
     }
 
-    // --- Business Methods (exactly as per UML) ---
+    // --- Business Methods ---
 
     /**
      * Views the balances of all members in the current group.
-     * Returns a map of each membership to their current balance.
-     *
-     * Positive balance = member has credit (others owe them)
-     * Negative balance = member has debt (they owe others)
-     * Zero balance = all settled
-     *
      * @return map of Membership to their BigDecimal balance
      */
     public Map<Membership, BigDecimal> viewBalances() {
         try {
-            // Check if user is logged in
-            if (!session.isLoggedIn()) {
-                return null;
-            }
+            if (!checkSession()) return null;
 
-            // Check if group is selected
-            if (!session.hasGroupSelected()) {
-                return null;
-            }
-
-            // Get balances through BalanceService
-            // BalanceService.getGroupBalances expects: (groupId)
             Map<Membership, BigDecimal> balances = balanceService.getGroupBalances(
                     session.getCurrentGroup().getGroupId()
             );
@@ -84,83 +75,53 @@ public class BalanceController {
             return balances;
 
         } catch (EntityNotFoundException e) {
+            navigator.showError("Error retrieving balances: " + e.getMessage());
             return null;
         } catch (Exception e) {
+            navigator.showError("Unexpected error: " + e.getMessage());
             return null;
         }
     }
 
     /**
-     * Views the optimized list of settlements to balance all debts.
-     * Uses the MinTransactionsStrategy to minimize the number of payments needed.
-     *
-     * This is useful for showing users the most efficient way to settle all debts
-     * in the group with the minimum number of transactions.
-     *
+     * Views the optimized list of settlements.
      * @return list of suggested Settlement objects
      */
     public List<Settlement> viewOptimizedDebts() {
         try {
-            // Check if user is logged in
-            if (!session.isLoggedIn()) {
-                return null;
-            }
+            if (!checkSession()) return null;
 
-            // Check if group is selected
-            if (!session.hasGroupSelected()) {
-                return null;
-            }
-
-            // Get optimized debts through BalanceService
-            // BalanceService.getOptimizedDebts expects: (groupId)
-            List<Settlement> optimizedSettlements = balanceService.getOptimizedDebts(
+            return balanceService.getOptimizedDebts(
                     session.getCurrentGroup().getGroupId()
             );
 
-            return optimizedSettlements;
-
         } catch (EntityNotFoundException e) {
+            navigator.showError("Error calculating optimized debts: " + e.getMessage());
             return null;
         } catch (Exception e) {
+            navigator.showError("Unexpected error: " + e.getMessage());
             return null;
         }
     }
 
     /**
      * Settles a debt by recording a payment from payer to receiver.
-     * Creates a Settlement in PENDING status that needs to be confirmed by the receiver.
-     *
-     * @param payerMembershipId the ID of the membership who is paying (the debtor)
-     * @param receiverId the ID of the membership who will receive the payment (the creditor)
-     * @param amount the amount to pay
      */
     public void settleDebt(Long payerMembershipId, Long receiverId, BigDecimal amount) {
         try {
-            // Validate input
-            if (payerMembershipId == null) {
-                return;
-            }
+            if (!checkSession()) return;
 
-            if (receiverId == null) {
+            // Validate input
+            if (payerMembershipId == null || receiverId == null) {
+                navigator.showError("Invalid member IDs");
                 return;
             }
 
             if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+                navigator.showError("Amount must be positive");
                 return;
             }
 
-            // Check if user is logged in
-            if (!session.isLoggedIn()) {
-                return;
-            }
-
-            // Check if group is selected
-            if (!session.hasGroupSelected()) {
-                return;
-            }
-
-            // Create settlement through SettlementService
-            // SettlementService.createSettlement expects: (groupId, payerMembershipId, receiverMembershipId, amount)
             settlementService.createSettlement(
                     session.getCurrentGroup().getGroupId(),
                     payerMembershipId,
@@ -168,213 +129,119 @@ public class BalanceController {
                     amount
             );
 
+            navigator.showSuccess("Settlement created successfully. Waiting for confirmation.");
+
         } catch (EntityNotFoundException e) {
-            // Handle error silently or log
+            navigator.showError("Member not found: " + e.getMessage());
         } catch (DomainException e) {
-            // Handle error silently or log
+            navigator.showError("Operation failed: " + e.getMessage());
         } catch (Exception e) {
-            // Handle error silently or log
+            navigator.showError("Unexpected error: " + e.getMessage());
         }
     }
 
     /**
      * Confirms a settlement payment.
-     * Only the receiver of the payment can confirm it.
-     * Once confirmed, the balances are updated.
-     *
-     * @param settlementId the ID of the settlement to confirm
-     * @param confirmerMembershipId the ID of the membership confirming (must be receiver)
      */
     public void confirmSettlement(Long settlementId, Long confirmerMembershipId) {
         try {
-            // Validate input
-            if (settlementId == null) {
+            if (!checkSession()) return;
+
+            if (settlementId == null || confirmerMembershipId == null) {
+                navigator.showError("Invalid parameters");
                 return;
             }
 
-            if (confirmerMembershipId == null) {
-                return;
-            }
-
-            // Check if user is logged in
-            if (!session.isLoggedIn()) {
-                return;
-            }
-
-            // Confirm settlement through SettlementService
-            // SettlementService.confirmSettlement expects: (settlementId, confirmerMembershipId)
             settlementService.confirmSettlement(settlementId, confirmerMembershipId);
+            navigator.showSuccess("Payment confirmed! Balances updated.");
 
         } catch (EntityNotFoundException e) {
-            // Settlement not found - handle error
+            navigator.showError("Settlement not found: " + e.getMessage());
         } catch (UnauthorizedException e) {
-            // Only receiver can confirm - handle error
+            navigator.showError("Permission denied: Only the receiver can confirm this payment.");
         } catch (DomainException e) {
-            // Business logic error - handle error
+            navigator.showError("Cannot confirm: " + e.getMessage());
         } catch (Exception e) {
-            // Unexpected error - handle error
+            navigator.showError("Unexpected error: " + e.getMessage());
         }
     }
-
-    // --- Additional Utility Methods ---
 
     /**
      * Cancels a pending settlement.
-     * Can be cancelled by payer, receiver, or admin.
-     *
-     * @param settlementId the ID of the settlement to cancel
-     * @param cancellerMembershipId the ID of the membership cancelling
      */
     public void cancelSettlement(Long settlementId, Long cancellerMembershipId) {
         try {
-            // Validate input
-            if (settlementId == null) {
+            if (!checkSession()) return;
+
+            if (settlementId == null || cancellerMembershipId == null) {
+                navigator.showError("Invalid parameters");
                 return;
             }
 
-            if (cancellerMembershipId == null) {
-                return;
-            }
-
-            // Check if user is logged in
-            if (!session.isLoggedIn()) {
-                return;
-            }
-
-            // Cancel settlement through SettlementService
             settlementService.cancelSettlement(settlementId, cancellerMembershipId);
+            navigator.showSuccess("Settlement cancelled.");
 
         } catch (EntityNotFoundException e) {
-            // Handle error
+            navigator.showError("Settlement not found");
         } catch (UnauthorizedException e) {
-            // Handle error
+            navigator.showError("Permission denied: " + e.getMessage());
         } catch (DomainException e) {
-            // Handle error
+            navigator.showError("Cannot cancel: " + e.getMessage());
         } catch (Exception e) {
-            // Handle error
+            navigator.showError("Unexpected error: " + e.getMessage());
         }
     }
 
-    /**
-     * Gets all pending settlements for the current group.
-     * Useful for showing payments awaiting confirmation.
-     *
-     * @return list of pending settlements
-     */
     public List<Settlement> getPendingSettlements() {
         try {
-            // Check if user is logged in
-            if (!session.isLoggedIn()) {
-                return null;
-            }
-
-            // Check if group is selected
-            if (!session.hasGroupSelected()) {
-                return null;
-            }
-
-            return settlementService.getPendingSettlements(
-                    session.getCurrentGroup().getGroupId()
-            );
-
-        } catch (EntityNotFoundException e) {
-            return null;
+            if (!checkSession()) return null;
+            return settlementService.getPendingSettlements(session.getCurrentGroup().getGroupId());
         } catch (Exception e) {
+            navigator.showError("Error loading pending settlements: " + e.getMessage());
             return null;
         }
     }
 
-    /**
-     * Gets all completed settlements for the current group.
-     * Useful for payment history.
-     *
-     * @return list of completed settlements
-     */
     public List<Settlement> getCompletedSettlements() {
         try {
-            // Check if user is logged in
-            if (!session.isLoggedIn()) {
-                return null;
-            }
-
-            // Check if group is selected
-            if (!session.hasGroupSelected()) {
-                return null;
-            }
-
-            return settlementService.getCompletedSettlements(
-                    session.getCurrentGroup().getGroupId()
-            );
-
-        } catch (EntityNotFoundException e) {
-            return null;
+            if (!checkSession()) return null;
+            return settlementService.getCompletedSettlements(session.getCurrentGroup().getGroupId());
         } catch (Exception e) {
+            navigator.showError("Error loading history: " + e.getMessage());
             return null;
         }
     }
 
-    /**
-     * Checks if the current group has all balances settled (all zero).
-     *
-     * @return true if all members have zero balance
-     */
     public boolean isGroupSettled() {
         try {
-            // Check if user is logged in
-            if (!session.isLoggedIn()) {
-                return false;
-            }
-
-            // Check if group is selected
-            if (!session.hasGroupSelected()) {
-                return false;
-            }
-
-            return balanceService.isGroupSettled(
-                    session.getCurrentGroup().getGroupId()
-            );
-
-        } catch (EntityNotFoundException e) {
-            return false;
+            if (!checkSession()) return false;
+            return balanceService.isGroupSettled(session.getCurrentGroup().getGroupId());
         } catch (Exception e) {
             return false;
         }
     }
 
-    // --- Getter Methods ---
+    // --- Helper ---
 
     /**
-     * Gets the balance service.
-     *
-     * @return the BalanceService instance
+     * Validates session state and navigates/shows error if invalid.
      */
-    public BalanceService getBalanceService() {
-        return balanceService;
+    private boolean checkSession() {
+        if (!session.isLoggedIn()) {
+            navigator.showError("You must be logged in.");
+            navigator.navigateToLogin();
+            return false;
+        }
+        if (!session.hasGroupSelected()) {
+            navigator.showError("No group selected.");
+            return false;
+        }
+        return true;
     }
 
-    /**
-     * Gets the settlement service.
-     *
-     * @return the SettlementService instance
-     */
-    public SettlementService getSettlementService() {
-        return settlementService;
-    }
+    // --- Getters ---
 
-    /**
-     * Gets the user session.
-     *
-     * @return the UserSession instance
-     */
-    public UserSession getSession() {
-        return session;
-    }
-
-    @Override
-    public String toString() {
-        return "BalanceController{" +
-                "currentGroup=" + (session.getCurrentGroup() != null ?
-                session.getCurrentGroup().getName() : "none") +
-                '}';
-    }
+    public BalanceService getBalanceService() { return balanceService; }
+    public SettlementService getSettlementService() { return settlementService; }
+    public UserSession getSession() { return session; }
 }

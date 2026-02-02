@@ -7,6 +7,8 @@ import com.splitmanager.exception.DomainException;
 import com.splitmanager.exception.EntityNotFoundException;
 import com.splitmanager.exception.UnauthorizedException;
 
+import com.splitmanager.businesslogic.controller.Navigator;
+
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -19,7 +21,7 @@ public class ExpenseController {
     // Dependencies
     private final ExpenseService expenseService;
     private final UserSession session;
-    private final NavigationManager navigator;
+    private final Navigator navigator;
 
     // --- Constructor ---
 
@@ -32,7 +34,7 @@ public class ExpenseController {
      */
     public ExpenseController(ExpenseService expenseService,
                              UserSession session,
-                             NavigationManager navigator) {
+                             Navigator navigator) {
 
         if (expenseService == null) {
             throw new IllegalArgumentException("ExpenseService cannot be null");
@@ -392,7 +394,7 @@ public class ExpenseController {
      *
      * @return the NavigationManager instance
      */
-    public NavigationManager getNavigator() {
+    public Navigator getNavigator() {
         return navigator;
     }
 

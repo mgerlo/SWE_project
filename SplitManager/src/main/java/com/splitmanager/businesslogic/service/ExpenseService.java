@@ -229,36 +229,45 @@ public class ExpenseService {
             // - Il PAYER riceve CREDITO: (amount - sua_quota)
             // - Gli altri vanno in DEBITO: -shareAmount
 
-            for (Membership participant : participants) {
+            // ==========================================
+            // FASE 5: AGGIORNAMENTO BALANCE (CORRETTO)
+            // ==========================================
 
-                // Carica il Balance (dovrebbe già esistere, creato in GroupService)
-                Balance balance = participant.getBalance();
+            for (Membership participant : participants) {
+                // 1. Assicuriamoci di avere l'ID del balance corretto
+                // Ricarichiamo il balance dal DB usando l'ID della membership per evitare problemi di cache/istanze
+                Balance balance = balanceDAO.findByMembershipId(participant.getMembershipId())
+                        .orElse(null);
 
                 if (balance == null) {
-                    // Fallback: crea Balance se non esiste
+                    // Crea se non esiste (lazy creation)
                     balance = new Balance(null, participant);
                     balance = balanceDAO.save(balance);
-                    participant.setBalance(balance);
                 }
 
+                // Aggiorniamo anche l'oggetto in memoria per coerenza (utile per i test immediati)
+                participant.setBalance(balance);
+
+                // 2. Logica di Business
                 if (participant.getMembershipId().equals(payerMembershipId)) {
-                    // Il pagante riceve credito
-                    // Ha pagato 'amount' ma deve solo 'shareAmount'
-                    // Quindi riceve: amount - shareAmount
+                    // Il Payer: riceve credito pari a (Totale - Sua Quota)
+                    // Esempio: Paga 100, quota 50 -> Credito +50
                     BigDecimal credit = amount.subtract(shareAmount);
 
-                    if (credit.compareTo(BigDecimal.ZERO) > 0) {
-                        balance.increment(credit);
-                    }
-                    // Se credit == 0 significa che ha pagato solo per sé
-
+                    // Nota: usiamo apply() che è più generico di increment/decrement
+                    balance.apply(credit);
                 } else {
-                    // Gli altri partecipanti vanno in debito
-                    balance.decrement(shareAmount);
+                    // Gli altri: vanno in debito della loro quota
+                    // Esempio: Quota 50 -> Debito -50
+                    balance.apply(shareAmount.negate());
                 }
 
-                // Aggiorna Balance nel DB
+                // 3. Salvataggio esplicito
                 balanceDAO.update(balance);
+
+                // DEBUG LOG (Rimuovere in produzione)
+                System.out.println("Service Updated Balance for " + participant.getUser().getFullName()
+                        + ": " + balance.getAmount());
             }
 
             // ==========================================

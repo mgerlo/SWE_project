@@ -135,14 +135,26 @@ public class SettlementService {
                 throw new DomainException("You cannot create a settlement to yourself");
             }
 
-            // Verifica che il payer abbia effettivamente un debito
-            Balance payerBalance = payer.getBalance();
+
+            // Ricarica il Balance dal DB per avere il dato aggiornato
+
+            Balance payerBalance = balanceDAO.findByMembershipId(payerMembershipId)
+                    .orElse(null);
+
+            // Aggiorna l'oggetto in memoria per coerenza
+            if (payerBalance != null) {
+                payer.setBalance(payerBalance);
+            }
+
+            // Ora fai i controlli usando il balance appena caricato
+            // Nota: getNetBalance() o getAmount() a seconda di come si chiama nel tuo dominio
+            // Assumo getAmount() basandomi sul tuo codice precedente, o getNetBalance() se usi quello del DAO
             if (payerBalance == null || payerBalance.getAmount().compareTo(BigDecimal.ZERO) >= 0) {
                 throw new DomainException("Payer has no debts to settle");
             }
 
             // UC8 Alternative 4a: verifica che l'importo non superi il debito
-            BigDecimal debtAmount = payerBalance.getAmount().abs(); // Valore assoluto del debito
+            BigDecimal debtAmount = payerBalance.getAmount().abs();
             if (amount.compareTo(debtAmount) > 0) {
                 throw new DomainException(
                         String.format("Amount (%s) exceeds actual debt (%s)",
@@ -251,17 +263,16 @@ public class SettlementService {
             Membership receiver = settlement.getReceiver();
             BigDecimal amount = settlement.getAmount();
 
-            Balance payerBalance = payer.getBalance();
-            Balance receiverBalance = receiver.getBalance();
+            // Ricarica esplicitamente i balance dal DB
+            Balance payerBalance = balanceDAO.findByMembershipId(payer.getMembershipId())
+                    .orElseThrow(() -> new EntityNotFoundException("Balance", payer.getMembershipId()));
 
-            if (payerBalance == null || receiverBalance == null) {
-                throw new DomainException("Balance not found for members");
-            }
-
-            // Il payer riduce il suo debito (incrementa perché è negativo)
+            Balance receiverBalance = balanceDAO.findByMembershipId(receiver.getMembershipId())
+                    .orElseThrow(() -> new EntityNotFoundException("Balance", receiver.getMembershipId()));
+            // Il payer riduce il suo debito (incrementa perché è negativo: -50 + 50 = 0)
             payerBalance.increment(amount);
 
-            // Il receiver riduce il suo credito (decrementa perché è positivo)
+            // Il receiver riduce il suo credito (decrementa perché è positivo: +50 - 50 = 0)
             receiverBalance.decrement(amount);
 
             // Salva i balance aggiornati

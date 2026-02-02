@@ -1,4 +1,4 @@
-package com.splitmanager.domain;
+package com.splitmanager.structural;
 
 import com.splitmanager.domain.accounting.Balance;
 import com.splitmanager.domain.registry.Group;

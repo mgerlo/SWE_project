@@ -2,6 +2,8 @@ package com.splitmanager.businesslogic.controller;
 
 import com.splitmanager.domain.registry.Group;
 
+import com.splitmanager.businesslogic.controller.Navigator;
+
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
@@ -9,7 +11,7 @@ import javax.swing.JOptionPane;
  * Singleton class that manages navigation between different screens in the application.
  * Handles the main frame and navigation logic for the GUI.
  */
-public class NavigationManager {
+public class NavigationManager implements Navigator {
 
     // Singleton instance (static)
     private static NavigationManager instance;
@@ -20,7 +22,7 @@ public class NavigationManager {
     // --- Private Constructor (Singleton Pattern) ---
 
     /**
-     * Private constructor to prevent direct instantiation.
+     * PRIVATE constructor to prevent direct instantiation.
      * Use getInstance() to get the singleton instance.
      */
     private NavigationManager() {
@@ -47,6 +49,7 @@ public class NavigationManager {
     /**
      * Navigates to the login screen.
      */
+    @Override
     public void navigateToLogin() {
         // Implementation will depend on your GUI framework
         // Typically: close current frame and open LoginFrame
@@ -60,6 +63,7 @@ public class NavigationManager {
     /**
      * Navigates to the registration screen.
      */
+    @Override
     public void navigateToRegister() {
         // Implementation will depend on your GUI framework
         // Typically: close current frame and open RegisterFrame
@@ -73,6 +77,7 @@ public class NavigationManager {
     /**
      * Navigates to the home screen.
      */
+    @Override
     public void navigateToHome() {
         // Implementation will depend on your GUI framework
         // Typically: close current frame and open HomeFrame
@@ -88,6 +93,7 @@ public class NavigationManager {
      *
      * @param group the group whose details should be displayed
      */
+    @Override
     public void navigateToGroupDetails(Group group) {
         if (group == null) {
             throw new IllegalArgumentException("Group cannot be null");
@@ -107,6 +113,7 @@ public class NavigationManager {
      *
      * @param message the error message to display
      */
+    @Override
     public void showError(String message) {
         if (message == null || message.trim().isEmpty()) {
             message = "An unknown error occurred";
@@ -148,6 +155,7 @@ public class NavigationManager {
      *
      * @param message the success message to display
      */
+    @Override
     public void showSuccess(String message) {
         if (message == null || message.trim().isEmpty()) {
             message = "Operation completed successfully";
@@ -167,6 +175,7 @@ public class NavigationManager {
      * @param message the confirmation message to display
      * @return true if the user confirmed, false otherwise
      */
+    @Override
     public boolean showConfirmation(String message) {
         if (message == null || message.trim().isEmpty()) {
             message = "Are you sure?";
@@ -190,3 +199,5 @@ public class NavigationManager {
                 '}';
     }
 }
+
+

@@ -1,4 +1,4 @@
-package com.splitmanager.domain;
+package com.splitmanager.structural;
 
 import com.splitmanager.domain.accounting.Category;
 import com.splitmanager.domain.accounting.Expense;

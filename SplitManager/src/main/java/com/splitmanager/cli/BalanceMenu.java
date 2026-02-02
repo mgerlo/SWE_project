@@ -1,6 +1,7 @@
 package com.splitmanager.cli;
 
 import com.splitmanager.businesslogic.controller.BalanceController;
+import com.splitmanager.businesslogic.controller.NavigationManager;
 import com.splitmanager.businesslogic.controller.UserSession;
 import com.splitmanager.businesslogic.service.BalanceService;
 import com.splitmanager.businesslogic.service.SettlementService;
@@ -30,7 +31,7 @@ public class BalanceMenu {
         this.session = UserSession.getInstance();
         BalanceService balanceService = new BalanceService();
         SettlementService settlementService = new SettlementService();
-        this.balanceController = new BalanceController(balanceService, settlementService, session);
+        this.balanceController = new BalanceController(balanceService, settlementService, session, NavigationManager.getInstance());
     }
 
     /**

@@ -5,6 +5,8 @@ import com.splitmanager.domain.registry.User;
 import com.splitmanager.exception.DomainException;
 import com.splitmanager.exception.UnauthorizedException;
 
+import com.splitmanager.businesslogic.controller.Navigator;
+
 /**
  * Controller that handles authentication operations.
  * Manages user login, signup, and logout functionality.
@@ -14,7 +16,7 @@ public class AuthController {
     // Dependencies
     private final UserService userService;
     private final UserSession session;
-    private final NavigationManager navigator;
+    private final Navigator navigator;
 
     // --- Constructor ---
 
@@ -27,7 +29,7 @@ public class AuthController {
      */
     public AuthController(UserService userService,
                           UserSession session,
-                          NavigationManager navigator) {
+                          Navigator navigator) {
 
         if (userService == null) {
             throw new IllegalArgumentException("UserService cannot be null");
@@ -179,7 +181,7 @@ public class AuthController {
      *
      * @return the NavigationManager instance
      */
-    public NavigationManager getNavigator() {
+    public Navigator getNavigator() {
         return navigator;
     }
 
