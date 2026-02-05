@@ -2,6 +2,10 @@ package com.splitmanager.dao;
 
 import com.splitmanager.domain.accounting.Balance;
 import com.splitmanager.domain.registry.Membership;
+import com.splitmanager.domain.registry.User;
+import com.splitmanager.domain.registry.Group;
+import com.splitmanager.domain.registry.Role;
+import com.splitmanager.domain.registry.MembershipStatus;
 import com.splitmanager.exception.DAOException;
 
 import java.math.BigDecimal;
@@ -22,30 +26,21 @@ import java.util.Optional;
  * 
  * PATTERN APPLICATI:
  * - Upsert Pattern: save() gestisce sia INSERT che UPDATE
- * - Dependency Injection: MembershipDAO iniettabile per evitare cicli
+ * - Lazy Loading: Ricostruisce oggetti Membership direttamente dal ResultSet evitando dipendenze circolari
+ * - Self-Contained Mapping: Evita dipendenze da MembershipDAO per prevenire cicli infiniti
  * 
+ * RISOLUZIONE DIPENDENZE CIRCOLARI:
+ * Invece di dipendere da MembershipDAO (che creerebbe un ciclo BalanceDAO <-> MembershipDAO),
+ * questo DAO ricostruisce autonomamente gli oggetti Membership necessari attraverso JOIN SQL.
  */
 public class BalanceDAO {
-private final Connection connection;
-    private final MembershipDAO membershipDAO;
+    private final Connection connection;
     
     /**
      * Costruttore di default.
-     * Crea istanza di MembershipDAO per caricare membership associate.
      */
     public BalanceDAO() {
         this.connection = ConnectionManager.getInstance().getConnection();
-        this.membershipDAO = new MembershipDAO();
-    }
-    
-    /**
-     * Costruttore con Dependency Injection (per testing e evitare dipendenze circolari).
-     * 
-     * @param membershipDAO istanza di MembershipDAO da usare
-     */
-    public BalanceDAO(MembershipDAO membershipDAO) {
-        this.connection = ConnectionManager.getInstance().getConnection();
-        this.membershipDAO = membershipDAO;
     }
     
     /**
@@ -126,13 +121,25 @@ private final Connection connection;
      * 
      * RELAZIONE 1:1: Ogni membership ha esattamente UN balance.
      * 
+     * LAZY LOADING: Ricostruisce l'oggetto Membership necessario attraverso JOIN
+     * invece di delegare a MembershipDAO, evitando dipendenze circolari.
+     * 
      * @param membershipId ID della membership
      * @return Optional contenente Balance se trovato
      * @throws DAOException in caso di errore SQL
      */
     public Optional<Balance> findByMembershipId(Long membershipId) {
-        String sql = "SELECT balance_id, membership_id, net_balance, last_updated FROM balances WHERE membership_id = ?";
-        
+        String sql = "SELECT b.balance_id, b.membership_id, b.net_balance, b.last_updated, " +
+                    "m.user_id, m.group_id, m.role, m.status, " +
+                    "u.email, u.full_name, u.password_hash, " +
+                    "g.name, g.description, g.currency, g.invite_code, " +
+                    "g.invite_code_expiry_date, g.is_active " +
+                    "FROM balances b " +
+                    "JOIN memberships m ON b.membership_id = m.membership_id " +
+                    "JOIN users u ON m.user_id = u.user_id " +
+                    "JOIN groups g ON m.group_id = g.group_id " +
+                    "WHERE b.membership_id = ?";
+
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setLong(1, membershipId);
             
@@ -152,14 +159,23 @@ private final Connection connection;
      * 
      * CASO D'USO: UC6 - View group balance
      * 
+     * Utilizza JOIN per ottenere tutti i dati necessari in una singola query,
+     * evitando N+1 query problem e dipendenze da altri DAO.
+     * 
      * @param groupId ID del gruppo
      * @return Map da Membership al loro saldo netto
      * @throws DAOException in caso di errore SQL
      */
     public Map<Membership, BigDecimal> findByGroup(Long groupId) {
-        String sql = "SELECT b.balance_id, b.membership_id, b.net_balance, b.last_updated " +
+        String sql = "SELECT b.balance_id, b.membership_id, b.net_balance, b.last_updated, " +
+                    "m.user_id, m.group_id, m.role, m.status, " +
+                    "u.email, u.full_name, u.password_hash, " +
+                    "g.name, g.description, g.currency, g.invite_code, " +
+                    "g.invite_code_expiry_date, g.is_active " +
                     "FROM balances b " +
                     "JOIN memberships m ON b.membership_id = m.membership_id " +
+                    "JOIN users u ON m.user_id = u.user_id " +
+                    "JOIN groups g ON m.group_id = g.group_id " +
                     "WHERE m.group_id = ?";
         
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
@@ -168,10 +184,7 @@ private final Connection connection;
             try (ResultSet rs = stmt.executeQuery()) {
                 Map<Membership, BigDecimal> balances = new HashMap<>();
                 while (rs.next()) {
-                    Long membershipId = rs.getLong("membership_id");
-                    Membership membership = membershipDAO.findById(membershipId)
-                        .orElseThrow(() -> new DAOException("Membership not found: " + membershipId, null));
-                    
+                    Membership membership = mapResultSetToMembership(rs);
                     BigDecimal amount = rs.getBigDecimal("net_balance");
                     balances.put(membership, amount);
                 }
@@ -186,24 +199,75 @@ private final Connection connection;
      * Mappa un ResultSet su un oggetto Balance di dominio.
      * 
      * RESPONSABILITÀ:
-     * - Ricostruisce oggetto Membership associato (tramite MembershipDAO)
+     * - Ricostruisce oggetto Membership associato autonomamente dal ResultSet
      * - Converte Timestamp -> LocalDateTime
      * - Gestisce BigDecimal per precisione monetaria
+     * 
+     * PATTERN: Self-Contained Mapping per evitare dipendenze circolari
      * 
      * @param rs ResultSet posizionato su una riga valida
      * @return oggetto Balance popolato
      * @throws SQLException se errore nel leggere ResultSet
      */
     private Balance mapResultSetToBalance(ResultSet rs) throws SQLException {
-        Long membershipId = rs.getLong("membership_id");
-        Membership membership = membershipDAO.findById(membershipId)
-            .orElseThrow(() -> new DAOException("Membership not found: " + membershipId, null));
-        
+        Membership membership = mapResultSetToMembership(rs);
+
         return new Balance(
             rs.getLong("balance_id"),
             membership,
             rs.getBigDecimal("net_balance"),
             rs.getTimestamp("last_updated").toLocalDateTime()
         );
+    }
+
+    /**
+     * Ricostruisce un oggetto Membership dal ResultSet.
+     * 
+     * NOTA: Questa è una copia locale del mapping fatto da MembershipDAO.
+     * La duplicazione è accettabile per evitare dipendenze circolari.
+     * 
+     * @param rs ResultSet contenente dati di membership, user e group
+     * @return oggetto Membership ricostruito
+     * @throws SQLException se errore nel leggere ResultSet
+     */
+    private Membership mapResultSetToMembership(ResultSet rs) throws SQLException {
+        // Ricostruisce User
+        User user = new User(
+            rs.getLong("user_id"),
+            rs.getString("email"),
+            rs.getString("full_name"),
+            rs.getString("password_hash")
+        );
+        
+        // Ricostruisce Group
+        Group group = new Group(
+            rs.getLong("group_id"),
+            rs.getString("name"),
+            rs.getString("currency")
+        );
+        group.setDescription(rs.getString("description"));
+        group.setInviteCode(rs.getString("invite_code"));
+        
+        // Conversione nullable Timestamp -> LocalDateTime
+        Timestamp expiry = rs.getTimestamp("invite_code_expiry_date");
+        if (expiry != null) {
+            group.setInviteCodeExpiry(expiry.toLocalDateTime());
+        }
+        
+        group.setActive(rs.getBoolean("is_active"));
+        
+        // Ricostruisce Membership
+        Membership membership = new Membership(
+            rs.getLong("membership_id"),
+            user,
+            group,
+            Role.valueOf(rs.getString("role"))
+        );
+        
+        // Imposta lo status corretto
+        MembershipStatus status = MembershipStatus.valueOf(rs.getString("status"));
+        membership.changeStatus(status);
+        
+        return membership;
     }
 }
