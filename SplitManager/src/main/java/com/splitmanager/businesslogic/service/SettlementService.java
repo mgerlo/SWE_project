@@ -269,11 +269,14 @@ public class SettlementService {
 
             Balance receiverBalance = balanceDAO.findByMembershipId(receiver.getMembershipId())
                     .orElseThrow(() -> new EntityNotFoundException("Balance", receiver.getMembershipId()));
-            // Il payer riduce il suo debito (incrementa perché è negativo: -50 + 50 = 0)
-            payerBalance.increment(amount);
 
-            // Il receiver riduce il suo credito (decrementa perché è positivo: +50 - 50 = 0)
-            receiverBalance.decrement(amount);
+            // Payer (debitore): aggiunge l'importo positivo per ridurre il debito negativo
+            // Es: debito -50 + pagamento 50 = saldo 0
+            payerBalance.apply(amount);
+
+            // Receiver (creditore): aggiunge l'importo negativo per ridurre il credito positivo
+            // Es: credito +80 - ricevuto 50 = credito +30
+            receiverBalance.apply(amount.negate());
 
             // Salva i balance aggiornati
             balanceDAO.update(payerBalance);

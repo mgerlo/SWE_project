@@ -11,6 +11,7 @@ import com.splitmanager.exception.DomainException;
 import com.splitmanager.exception.EntityNotFoundException;
 import com.splitmanager.exception.UnauthorizedException;
 
+import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
@@ -264,32 +265,100 @@ public class GroupService {
      * @throws DomainException se il membro ha debiti (UC10 Alternative 3a)
      */
     public void removeMember(Long groupId, Long membershipIdToRemove, Long adminMembershipId) {
-        Group group = groupDAO.findById(groupId)
-                .orElseThrow(() -> new EntityNotFoundException("Group", groupId));
+        ConnectionManager connMgr = ConnectionManager.getInstance();
+        
+        try {
+            connMgr.beginTransaction();
+            
+            System.out.println("[GroupService] removeMember: START");
+            System.out.println("[GroupService] Removing member ID: " + membershipIdToRemove + 
+                            " by admin ID: " + adminMembershipId);
 
-        Membership memberToRemove = membershipDAO.findById(membershipIdToRemove)
-                .orElseThrow(() -> new EntityNotFoundException("Membership", membershipIdToRemove));
+            Group group = groupDAO.findById(groupId)
+                    .orElseThrow(() -> new EntityNotFoundException("Group", groupId));
 
-        Membership admin = membershipDAO.findById(adminMembershipId)
-                .orElseThrow(() -> new EntityNotFoundException("Membership", adminMembershipId));
+            Membership memberToRemove = membershipDAO.findById(membershipIdToRemove)
+                    .orElseThrow(() -> new EntityNotFoundException("Membership", membershipIdToRemove));
 
-        // Verifica permessi
-        if (!group.canRemoveMember(admin, memberToRemove)) {
-            throw new UnauthorizedException("You don't have permission to remove this member");
+            Membership admin = membershipDAO.findById(adminMembershipId)
+                    .orElseThrow(() -> new EntityNotFoundException("Membership", adminMembershipId));
+
+            System.out.println("[GroupService] Member to remove: " + memberToRemove.getUser().getFullName() + 
+                            " (Role: " + memberToRemove.getRole() + ")");
+
+            // Verifica permessi
+            if (!group.canRemoveMember(admin, memberToRemove)) {
+                System.out.println("[GroupService] Permission check FAILED");
+                throw new UnauthorizedException("You don't have permission to remove this member");
+            }
+            System.out.println("[GroupService] Permission check PASSED");
+
+            // ==========================================
+            // VERIFICA DEBITI PENDENTI - UC10 Alternative 3a
+            // ==========================================
+            Balance memberBalance = balanceDAO.findByMembershipId(membershipIdToRemove)
+                    .orElse(null);
+            
+            if (memberBalance == null) {
+                // Se non esiste balance, creane uno con saldo zero
+                memberBalance = new Balance(null, memberToRemove);
+                balanceDAO.save(memberBalance);
+                System.out.println("[GroupService] No balance found, created new with zero balance");
+            } else {
+                System.out.println("[GroupService] Found balance: " + memberBalance.getAmount());
+            }
+            
+            // Il membro NON può essere rimosso se ha DEBITI (saldo negativo)
+            // Ma può essere rimosso se ha CREDITI (saldo positivo) secondo UC10
+            BigDecimal balanceAmount = memberBalance.getAmount();
+            if (balanceAmount.compareTo(BigDecimal.ZERO) < 0) {  // Solo se DEBITORE (negativo)
+                String errorMsg = String.format(
+                    "Cannot remove member '%s' because they have pending debts: %s %s",
+                    memberToRemove.getUser().getFullName(),
+                    balanceAmount.abs(),  // Mostra valore assoluto
+                    group.getCurrency()
+                );
+                System.out.println("[GroupService] " + errorMsg);
+                throw new DomainException(errorMsg);
+            }
+            
+            // Se ha credito (positivo) o saldo zero, può essere rimosso
+            System.out.println("[GroupService] Balance check PASSED (creditor or zero balance: " + balanceAmount + ")");
+
+            // Rimuovi (cambia status a REMOVED)
+            memberToRemove.terminate();
+            membershipDAO.update(memberToRemove);
+            System.out.println("[GroupService] Member status updated to REMOVED");
+
+            // Notifica evento
+            group.removeMembership(memberToRemove, admin);
+            groupDAO.update(group);
+            System.out.println("[GroupService] Group updated, removal event triggered");
+
+            connMgr.commit();
+            System.out.println("[GroupService] removeMember: COMMITTED successfully");
+
+        } catch (Exception e) {
+            try {
+                connMgr.rollback();
+                System.out.println("[GroupService] removeMember: ROLLBACK due to: " + e.getMessage());
+            } catch (SQLException ex) {
+                throw new DomainException("Error during transaction rollback", ex);
+            }
+            
+            // Rilancia l'eccezione appropriata
+            if (e instanceof UnauthorizedException) {
+                throw (UnauthorizedException) e;
+            }
+            if (e instanceof DomainException) {
+                throw (DomainException) e;
+            }
+            if (e instanceof EntityNotFoundException) {
+                throw (EntityNotFoundException) e;
+            }
+            
+            throw new DomainException("Error removing member: " + e.getMessage(), e);
         }
-
-        // Verifica debiti pendenti (UC10 Alternative 3a)
-        if (!memberToRemove.canBeRemoved()) {
-            throw new DomainException("The member has pending debts and cannot be removed");
-        }
-
-        // Rimuovi
-        memberToRemove.terminate();
-        membershipDAO.update(memberToRemove);
-
-        // Notifica evento
-        group.removeMembership(memberToRemove, admin);
-        groupDAO.update(group);
     }
 
     /**
