@@ -3,7 +3,6 @@ package com.splitmanager.integration;
 import com.splitmanager.businesslogic.service.ExpenseService;
 import com.splitmanager.businesslogic.service.GroupService;
 import com.splitmanager.businesslogic.service.UserService;
-import com.splitmanager.dao.*;
 import com.splitmanager.domain.accounting.Balance;
 import com.splitmanager.domain.accounting.Category;
 import com.splitmanager.domain.accounting.Expense;
@@ -11,15 +10,11 @@ import com.splitmanager.domain.registry.Group;
 import com.splitmanager.domain.registry.Membership;
 import com.splitmanager.domain.registry.User;
 import com.splitmanager.exception.DomainException;
-import com.splitmanager.exception.EntityNotFoundException;
 import com.splitmanager.exception.UnauthorizedException;
 
 import org.junit.jupiter.api.*;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -35,23 +30,14 @@ import static org.junit.jupiter.api.Assertions.*;
  * NO MOCKS - Uses real DAOs and H2 database.
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-class ExpenseServiceTest_UC5_UC11 {
-
-    private ConnectionManager connMgr;
+class ExpenseServiceTest_UC5_UC11 extends BaseIntegrationTest {
 
     // Services
     private UserService userService;
     private GroupService groupService;
     private ExpenseService expenseService;
 
-    // DAOs
-    private UserDAO userDAO;
-    private GroupDAO groupDAO;
-    private MembershipDAO membershipDAO;
-    private BalanceDAO balanceDAO;
-    private ExpenseDAO expenseDAO;
-
-    // Test data (created in setUp)
+    // Test data (created in setupTestData)
     private User alice;
     private User bob;
     private Group group;
@@ -59,22 +45,15 @@ class ExpenseServiceTest_UC5_UC11 {
     private Membership bobMembership;
 
     @BeforeEach
-    void setUp() throws SQLException {
-        // Initialize connection
-        connMgr = ConnectionManager.getInstance();
-        cleanDatabase();
+    @Override
+    void setUp() throws Exception {
+        // Call parent setup (initializes DAOs and cleans database)
+        super.setUp();
 
-        // Initialize DAOs (REAL, no mocks!)
-        userDAO = new UserDAO();
-        groupDAO = new GroupDAO();
-        membershipDAO = new MembershipDAO();
-        balanceDAO = new BalanceDAO();
-        expenseDAO = new ExpenseDAO();
-
-        // Initialize Services
-        userService = new UserService(userDAO);
-        groupService = new GroupService(groupDAO, membershipDAO, balanceDAO);
-        expenseService = new ExpenseService(expenseDAO, membershipDAO, balanceDAO, groupDAO);
+        // Initialize Services using inherited DAOs
+        userService = new UserService(this.userDAO);
+        groupService = new GroupService(this.groupDAO, this.membershipDAO, this.balanceDAO);
+        expenseService = new ExpenseService(this.expenseDAO, this.membershipDAO, this.balanceDAO, this.groupDAO);
 
         // Setup test data: 2 users in 1 group
         setupTestData();
@@ -487,23 +466,4 @@ class ExpenseServiceTest_UC5_UC11 {
         assertEquals(new BigDecimal("-10.00"), bobBalance.getAmount());
     }
 
-    // ==========================================
-    // DATABASE CLEANUP
-    // ==========================================
-
-    private void cleanDatabase() throws SQLException {
-        Connection conn = connMgr.getConnection();
-        try (Statement stmt = conn.createStatement()) {
-            stmt.execute("SET REFERENTIAL_INTEGRITY = FALSE");
-            stmt.execute("TRUNCATE TABLE settlements");
-            stmt.execute("TRUNCATE TABLE balances");
-            stmt.execute("TRUNCATE TABLE expense_participants");
-            stmt.execute("TRUNCATE TABLE expenses");
-            stmt.execute("TRUNCATE TABLE memberships");
-            stmt.execute("TRUNCATE TABLE groups");
-            stmt.execute("TRUNCATE TABLE users");
-            stmt.execute("SET REFERENTIAL_INTEGRITY = TRUE");
-            conn.commit();
-        }
-    }
 }
