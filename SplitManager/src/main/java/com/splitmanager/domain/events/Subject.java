@@ -28,8 +28,7 @@ public abstract class Subject {
             try {
                 observer.onDomainEvent(event);
             } catch (Exception e) {
-                // Log errore ma continua con altri observer
-                System.err.println("Error notifying observer: " + e.getMessage());
+                //Continua con altri observer
             }
         }
     }

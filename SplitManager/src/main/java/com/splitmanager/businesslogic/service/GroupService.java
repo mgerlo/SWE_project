@@ -269,10 +269,6 @@ public class GroupService {
         
         try {
             connMgr.beginTransaction();
-            
-            System.out.println("[GroupService] removeMember: START");
-            System.out.println("[GroupService] Removing member ID: " + membershipIdToRemove + 
-                            " by admin ID: " + adminMembershipId);
 
             Group group = groupDAO.findById(groupId)
                     .orElseThrow(() -> new EntityNotFoundException("Group", groupId));
@@ -283,15 +279,10 @@ public class GroupService {
             Membership admin = membershipDAO.findById(adminMembershipId)
                     .orElseThrow(() -> new EntityNotFoundException("Membership", adminMembershipId));
 
-            System.out.println("[GroupService] Member to remove: " + memberToRemove.getUser().getFullName() + 
-                            " (Role: " + memberToRemove.getRole() + ")");
-
             // Verifica permessi
             if (!group.canRemoveMember(admin, memberToRemove)) {
-                System.out.println("[GroupService] Permission check FAILED");
                 throw new UnauthorizedException("You don't have permission to remove this member");
             }
-            System.out.println("[GroupService] Permission check PASSED");
 
             // ==========================================
             // VERIFICA DEBITI PENDENTI - UC10 Alternative 3a
@@ -303,9 +294,6 @@ public class GroupService {
                 // Se non esiste balance, creane uno con saldo zero
                 memberBalance = new Balance(null, memberToRemove);
                 balanceDAO.save(memberBalance);
-                System.out.println("[GroupService] No balance found, created new with zero balance");
-            } else {
-                System.out.println("[GroupService] Found balance: " + memberBalance.getAmount());
             }
             
             // Il membro NON può essere rimosso se ha DEBITI (saldo negativo)
@@ -318,30 +306,22 @@ public class GroupService {
                     balanceAmount.abs(),  // Mostra valore assoluto
                     group.getCurrency()
                 );
-                System.out.println("[GroupService] " + errorMsg);
                 throw new DomainException(errorMsg);
             }
-            
-            // Se ha credito (positivo) o saldo zero, può essere rimosso
-            System.out.println("[GroupService] Balance check PASSED (creditor or zero balance: " + balanceAmount + ")");
 
             // Rimuovi (cambia status a REMOVED)
             memberToRemove.terminate();
             membershipDAO.update(memberToRemove);
-            System.out.println("[GroupService] Member status updated to REMOVED");
 
             // Notifica evento
             group.removeMembership(memberToRemove, admin);
             groupDAO.update(group);
-            System.out.println("[GroupService] Group updated, removal event triggered");
 
             connMgr.commit();
-            System.out.println("[GroupService] removeMember: COMMITTED successfully");
 
         } catch (Exception e) {
             try {
                 connMgr.rollback();
-                System.out.println("[GroupService] removeMember: ROLLBACK due to: " + e.getMessage());
             } catch (SQLException ex) {
                 throw new DomainException("Error during transaction rollback", ex);
             }

@@ -7,6 +7,8 @@ import com.splitmanager.domain.events.Observer;
 import com.splitmanager.domain.accounting.Balance;
 
 import java.util.Objects;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 public class Membership implements Observer {
     private Long membershipId;
@@ -78,19 +80,25 @@ public class Membership implements Observer {
     }
 
     // --- Implementazione Pattern Observer ---
+    private static final Logger LOGGER = Logger.getLogger(Membership.class.getName());
 
     @Override
     public void onDomainEvent(DomainEvent event) {
+        // L'aggiornamento della contabilità (Balance) è gestito in modo transazionale
+        // direttamente dal Service Layer per garantire la consistenza dei dati.
+
+        // L'observer invia solo una notifica (simulata) all'utente interessato, senza modificare lo stato interno del Membership.
+        // Usiamo un Logger per simulare l'invio di una mail/push notification.
         String memberName = user != null ? user.getFullName() : "Unknown";
 
         String sourceDescription = (this.group != null)
                 ? "Group '" +this.group.getName() + "' "
                 : "Source ID " + event.getSourceId();
 
-        System.out.printf("[%s] Event received: %s from %s%n",
+        String msg = String.format("SIMULATION [Email to %s]: Event '%s' occurred on source %s%n",
                 memberName, event.getType(), sourceDescription);
 
-        // Il Service aggiorna i Balance, qui solo notifica
+        LOGGER.log(Level.INFO, msg);
     }
 
     // Getters e Equals

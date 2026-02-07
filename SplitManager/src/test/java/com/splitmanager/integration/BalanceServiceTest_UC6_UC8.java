@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * - UC8: Settle up debts - Rimborso debiti tra membri
  * 
  * SCENARIO DI TEST:
- * Un gruppo "Vacanza" con 3 membri:
+ * Un gruppo "Vacation" con 3 membri:
  * - Alice (Admin): debito di 50€
  * - Bob (Member): debito di 30€  
  * - Charlie (Member): credito di 80€
@@ -71,7 +71,7 @@ public class BalanceServiceTest_UC6_UC8 extends BaseIntegrationTest {
         userId2 = createUser("bob@test.com", "Bob", "password123");
         userId3 = createUser("charlie@test.com", "Charlie", "password123");
         
-        groupId = createGroup("Vacanza", "EUR", userId1);
+        groupId = createGroup("Vacation", "EUR", userId1);
         
         membershipId1 = createMembership(userId1, groupId, "ADMIN", "ACTIVE");
         membershipId2 = createMembership(userId2, groupId, "MEMBER", "ACTIVE");
@@ -133,26 +133,20 @@ public class BalanceServiceTest_UC6_UC8 extends BaseIntegrationTest {
     void UC8_settleUp_betweenTwoUsers_shouldUpdateBalances() throws Exception {
         BigDecimal aliceDebt = new BigDecimal("50.00");
         
-        System.out.println("[TEST] Starting: Alice pays 50€ to Charlie");
+        // Alice pays 50€ to Charlie
         
         Settlement settlement = settlementService.createSettlement(
             groupId, membershipId1, membershipId3, aliceDebt);
         
         Long settlementId = settlement.getSettlementId();
-        System.out.println("[TEST] Created settlement ID: " + settlementId);
         
         settlementService.confirmSettlement(settlementId, membershipId3);
         
         settlement = settlementDAO.findById(settlementId)
                 .orElseThrow(() -> new EntityNotFoundException("Settlement", settlementId));
         
-        System.out.println("[TEST] Settlement status: " + settlement.getStatus());
-        
         BigDecimal aliceBalanceAfter = getBalance(membershipId1);
         BigDecimal charlieBalanceAfter = getBalance(membershipId3);
-        
-        System.out.println("[TEST] Alice balance: " + aliceBalanceAfter);
-        System.out.println("[TEST] Charlie balance: " + charlieBalanceAfter);
         
         // Verifica balance aggiornati
         assertEquals(0, BigDecimal.ZERO.compareTo(aliceBalanceAfter),

@@ -56,22 +56,17 @@ public class GroupServiceTest_UC10 extends BaseIntegrationTest {
     void setUp() throws Exception {
         super.setUp();
         
-        System.out.println("[TEST SETUP] Starting GroupServiceTest_UC10 setup");
-        
         // Inizializza il Service con DAO reali
         groupService = new GroupService(groupDAO, membershipDAO, balanceDAO);
         
-        // Crea utenti
+        // Crea utenti: Admin, Debtor, Creditor, Neutral
         adminId = createUser("admin@test.com", "Admin", "password123");
         memberWithDebtId = createUser("debtor@test.com", "Debtor", "password123");
         memberInCreditId = createUser("creditor@test.com", "Creditor", "password123");
         neutralUserId = createUser("neutral@test.com", "Neutral", "password123");
         
-        System.out.println("[TEST SETUP] Created users: Admin, Debtor, Creditor, Neutral");
-        
         // Crea gruppo
         groupId = createGroup("Progetto", "EUR", adminId);
-        System.out.println("[TEST SETUP] Created group ID: " + groupId);
         
         // Crea membership con ruoli diversi
         adminMembershipId = createMembership(adminId, groupId, "ADMIN", "ACTIVE");
@@ -79,33 +74,15 @@ public class GroupServiceTest_UC10 extends BaseIntegrationTest {
         creditorMembershipId = createMembership(memberInCreditId, groupId, "MEMBER", "ACTIVE");
         neutralMembershipId = createMembership(neutralUserId, groupId, "MEMBER", "ACTIVE");
         
-        System.out.println("[TEST SETUP] Created memberships:");
-        System.out.println("  - Admin: " + adminMembershipId);
-        System.out.println("  - Debtor: " + debtorMembershipId);
-        System.out.println("  - Creditor: " + creditorMembershipId);
-        System.out.println("  - Neutral: " + neutralMembershipId);
-        
         // Imposta saldi: Debtor ha debito, Creditor ha credito, Neutral ha saldo zero
         updateBalance(debtorMembershipId, new BigDecimal("-50.00"));
         updateBalance(creditorMembershipId, new BigDecimal("50.00"));
         updateBalance(neutralMembershipId, BigDecimal.ZERO);
         
-        System.out.println("[TEST SETUP] Set balances:");
-        System.out.println("  - Debtor: -50.00");
-        System.out.println("  - Creditor: +50.00");
-        System.out.println("  - Neutral: 0.00");
-        
         // Verifica che i balance siano stati salvati
         BigDecimal debtorBalance = getBalance(debtorMembershipId);
         BigDecimal creditorBalance = getBalance(creditorMembershipId);
         BigDecimal neutralBalance = getBalance(neutralMembershipId);
-        
-        System.out.println("[TEST SETUP] Verified balances from DB:");
-        System.out.println("  - Debtor: " + debtorBalance);
-        System.out.println("  - Creditor: " + creditorBalance);
-        System.out.println("  - Neutral: " + neutralBalance);
-        
-        System.out.println("[TEST SETUP] Setup completed successfully");
     }
     
     /**
@@ -118,31 +95,21 @@ public class GroupServiceTest_UC10 extends BaseIntegrationTest {
      */
     @Test
     void UC10_removeMember_withDebt_shouldThrowBusinessException() throws Exception {
-        System.out.println("[TEST] UC10_removeMember_withDebt_shouldThrowBusinessException - START");
-        System.out.println("[TEST] Attempting to remove debtor member ID: " + debtorMembershipId);
-        
         // Verifica il balance prima del test
         BigDecimal balanceBefore = getBalance(debtorMembershipId);
-        System.out.println("[TEST] Debtor balance before removal attempt: " + balanceBefore);
         
         // WHEN/THEN: Tentativo di rimuovere un membro con debito
         DomainException exception = assertThrows(DomainException.class, () -> {
-            System.out.println("[TEST] Calling groupService.removeMember()...");
             groupService.removeMember(groupId, debtorMembershipId, adminMembershipId);
-            System.out.println("[TEST] ERROR: removeMember() completed without exception!");
         });
-        
-        System.out.println("[TEST] DomainException thrown as expected: " + exception.getMessage());
+
         assertTrue(exception.getMessage().contains("pending debts") || 
                    exception.getMessage().contains("Cannot remove") ||
                    exception.getMessage().contains("non-zero balance"));
         
         // VERIFICA: Il membro è ancora nel gruppo
         boolean isStillActive = isMemberActive(groupId, memberWithDebtId);
-        System.out.println("[TEST] Debtor is still active in group: " + isStillActive);
         assertTrue(isStillActive, "Debtor should still be in the group");
-        
-        System.out.println("[TEST] UC10_removeMember_withDebt_shouldThrowBusinessException - PASSED");
     }
     
     /**
@@ -154,24 +121,17 @@ public class GroupServiceTest_UC10 extends BaseIntegrationTest {
      */
     @Test
     void UC10_removeMember_inCredit_shouldSucceed() throws Exception {
-        System.out.println("[TEST] UC10_removeMember_inCredit_shouldSucceed - START");
-        System.out.println("[TEST] Attempting to remove creditor member ID: " + creditorMembershipId);
-        
         // Creditor ha credito (+50), secondo UC10 può essere rimosso
         // Rimuovo il membro con credito
         groupService.removeMember(groupId, creditorMembershipId, adminMembershipId);
         
         // Il membro viene rimosso (status = REMOVED)
         boolean isActive = isMemberActive(groupId, memberInCreditId);
-        System.out.println("[TEST] Creditor is still active: " + isActive);
         assertFalse(isActive, "Creditor should be removed");
         
         // E il credito rimane nel sistema
         BigDecimal creditorBalance = getBalance(creditorMembershipId);
-        System.out.println("[TEST] Creditor balance after removal: " + creditorBalance);
         assertEquals(new BigDecimal("50.00"), creditorBalance);
-        
-        System.out.println("[TEST] UC10_removeMember_inCredit_shouldSucceed - PASSED");
     }
     
     /**
@@ -180,15 +140,11 @@ public class GroupServiceTest_UC10 extends BaseIntegrationTest {
      */
     @Test
     void UC10_removeMember_zeroBalance_shouldSucceed() throws Exception {
-        System.out.println("[TEST] UC10_removeMember_zeroBalance_shouldSucceed - START");
-        
         // Rimuovo il membro con saldo zero
         groupService.removeMember(groupId, neutralMembershipId, adminMembershipId);
         
         // Operazione riuscita
         assertFalse(isMemberActive(groupId, neutralUserId));
-        
-        System.out.println("[TEST] UC10_removeMember_zeroBalance_shouldSucceed - PASSED");
     }
     
     /**
@@ -199,24 +155,17 @@ public class GroupServiceTest_UC10 extends BaseIntegrationTest {
      */
     @Test
     void UC10_removeMember_byNonAdmin_shouldThrowUnauthorizedException() throws Exception {
-        System.out.println("[TEST] UC10_removeMember_byNonAdmin_shouldThrowUnauthorizedException - START");
-        
         // Creo un membro normale
         Long regularUserId = createUser("regular@test.com", "Regular", "password123");
         Long regularMembershipId = createMembership(regularUserId, groupId, "MEMBER", "ACTIVE");
-        
-        System.out.println("[TEST] Created regular member ID: " + regularMembershipId);
-        
+
         // Tentativo di rimuovere un membro senza essere admin
         UnauthorizedException exception = assertThrows(UnauthorizedException.class, () -> {
             groupService.removeMember(groupId, debtorMembershipId, regularMembershipId);
         });
-        
-        System.out.println("[TEST] UnauthorizedException thrown: " + exception.getMessage());
+
         assertTrue(exception.getMessage().contains("permission") || 
                    exception.getMessage().contains("authorized"));
-        
-        System.out.println("[TEST] UC10_removeMember_byNonAdmin_shouldThrowUnauthorizedException - PASSED");
     }
     
     /**
@@ -228,34 +177,23 @@ public class GroupServiceTest_UC10 extends BaseIntegrationTest {
      */
     @Test
     void UC10_removeMember_adminWithDebt_shouldAlsoBeBlocked() throws Exception {
-        System.out.println("[TEST] UC10_removeMember_adminWithDebt_shouldAlsoBeBlocked - START");
-        
         // Creo un secondo admin con debito
         Long adminWithDebtId = createUser("admin2@test.com", "Admin2", "password123");
         Long admin2MembershipId = createMembership(adminWithDebtId, groupId, "ADMIN", "ACTIVE");
         updateBalance(admin2MembershipId, new BigDecimal("-30.00"));
-        
-        System.out.println("[TEST] Created admin with debt ID: " + admin2MembershipId);
-        System.out.println("[TEST] Admin with debt balance: " + getBalance(admin2MembershipId));
-        
+
         // Anche un admin non può essere rimosso se ha debiti
         DomainException exception = assertThrows(DomainException.class, () -> {
-            System.out.println("[TEST] Attempting to remove admin with debt...");
             groupService.removeMember(groupId, admin2MembershipId, adminMembershipId);
-            System.out.println("[TEST] ERROR: Admin with debt was removed without exception!");
         });
-        
-        System.out.println("[TEST] DomainException thrown: " + exception.getMessage());
+
         assertTrue(exception.getMessage().contains("pending debts") || 
                    exception.getMessage().contains("Cannot remove") ||
                    exception.getMessage().contains("non-zero balance"));
         
         // Verifica che l'admin sia ancora nel gruppo
         boolean isStillActive = isMemberActive(groupId, adminWithDebtId);
-        System.out.println("[TEST] Admin with debt is still active: " + isStillActive);
         assertTrue(isStillActive, "Admin with debt should still be in the group");
-        
-        System.out.println("[TEST] UC10_removeMember_adminWithDebt_shouldAlsoBeBlocked - PASSED");
     }
     
     /**
@@ -270,21 +208,15 @@ public class GroupServiceTest_UC10 extends BaseIntegrationTest {
      */
     @Test
     void UC10_approveMember_waitingAcceptance_shouldActivate() throws Exception {
-        System.out.println("[TEST] UC10_approveMember_waitingAcceptance_shouldActivate - START");
-        
         // Creo un nuovo membro in attesa
         Long waitingUserId = createUser("waiting@test.com", "Waiting", "password123");
         Long waitingMembershipId = createMembership(waitingUserId, groupId, "MEMBER", "WAITING_ACCEPTANCE");
-        
-        System.out.println("[TEST] Created waiting member ID: " + waitingMembershipId);
-        
+
         // L'admin approva il membro
         groupService.approveMember(waitingMembershipId, adminMembershipId);
         
         // Il membro diventa ACTIVE
         assertTrue(isMemberActive(groupId, waitingUserId));
-        
-        System.out.println("[TEST] UC10_approveMember_waitingAcceptance_shouldActivate - PASSED");
     }
     
     /**
@@ -293,22 +225,16 @@ public class GroupServiceTest_UC10 extends BaseIntegrationTest {
      */
     @Test
     void UC10_inviteMember_byAdmin_shouldGenerateNewCode() throws Exception {
-        System.out.println("[TEST] UC10_inviteMember_byAdmin_shouldGenerateNewCode - START");
-        
         // L'admin genera un nuovo codice invito
         String newInviteCode = groupService.inviteMember(groupId, adminMembershipId);
         
         // Il codice non è nullo
         assertNotNull(newInviteCode);
         assertFalse(newInviteCode.isEmpty());
-        
-        System.out.println("[TEST] Generated invite code: " + newInviteCode);
-        
+
         // E il codice è stato salvato nel gruppo
         String groupInviteCode = getGroupInviteCode(groupId);
         assertEquals(newInviteCode, groupInviteCode);
-        
-        System.out.println("[TEST] UC10_inviteMember_byAdmin_shouldGenerateNewCode - PASSED");
     }
     
     /**
@@ -319,18 +245,13 @@ public class GroupServiceTest_UC10 extends BaseIntegrationTest {
      */
     @Test
     void UC10_inviteMember_byNonAdmin_shouldThrowException() throws Exception {
-        System.out.println("[TEST] UC10_inviteMember_byNonAdmin_shouldThrowException - START");
-        
         // Tentativo di generare codice invito senza permessi
         UnauthorizedException exception = assertThrows(UnauthorizedException.class, () -> {
             groupService.inviteMember(groupId, debtorMembershipId);
         });
-        
-        System.out.println("[TEST] UnauthorizedException thrown: " + exception.getMessage());
+
         assertTrue(exception.getMessage().contains("Only admins") || 
                    exception.getMessage().contains("authorized"));
-        
-        System.out.println("[TEST] UC10_inviteMember_byNonAdmin_shouldThrowException - PASSED");
     }
     
     /**
