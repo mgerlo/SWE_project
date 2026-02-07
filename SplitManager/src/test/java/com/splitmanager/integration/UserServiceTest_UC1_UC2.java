@@ -1,17 +1,11 @@
 package com.splitmanager.integration;
 
 import com.splitmanager.businesslogic.service.UserService;
-import com.splitmanager.dao.ConnectionManager;
-import com.splitmanager.dao.UserDAO;
 import com.splitmanager.domain.registry.User;
 import com.splitmanager.exception.DomainException;
 import com.splitmanager.exception.EntityNotFoundException;
 
 import org.junit.jupiter.api.*;
-
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -24,25 +18,18 @@ import static org.junit.jupiter.api.Assertions.*;
  * Database is cleaned before each test to ensure isolation.
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-class UserServiceTest_UC1_UC2 {
+class UserServiceTest_UC1_UC2 extends BaseIntegrationTest {
 
-    private ConnectionManager connMgr;
     private UserService userService;
-    private UserDAO userDAO;
 
     @BeforeEach
-    void setUp() throws SQLException {
-        // Initialize real database connection
-        connMgr = ConnectionManager.getInstance();
+    @Override
+    void setUp() throws Exception {
+        // Call parent setup (initializes DAOs and cleans database)
+        super.setUp();
 
-        // Clean database before each test
-        cleanDatabase();
-
-        // Initialize REAL DAO (no mocks!)
-        userDAO = new UserDAO();
-
-        // Initialize UserService with real DAO
-        userService = new UserService(userDAO);
+        // Initialize UserService with inherited DAO
+        userService = new UserService(this.userDAO);
     }
 
     // ==========================================
@@ -259,30 +246,5 @@ class UserServiceTest_UC1_UC2 {
         assertNotEquals(alice.getUserId(), bob.getUserId());
         assertNotEquals(bob.getUserId(), charlie.getUserId());
         assertNotEquals(alice.getUserId(), charlie.getUserId());
-    }
-
-    // ==========================================
-    // DATABASE CLEANUP
-    // ==========================================
-
-    /**
-     * Cleans the database before each test.
-     * Ensures test isolation by removing all data.
-     */
-    private void cleanDatabase() throws SQLException {
-        Connection conn = connMgr.getConnection();
-        try (Statement stmt = conn.createStatement()) {
-            // H2 syntax: SET REFERENTIAL_INTEGRITY = FALSE/TRUE
-            stmt.execute("SET REFERENTIAL_INTEGRITY = FALSE");
-            stmt.execute("TRUNCATE TABLE settlements");
-            stmt.execute("TRUNCATE TABLE balances");
-            stmt.execute("TRUNCATE TABLE expense_participants");
-            stmt.execute("TRUNCATE TABLE expenses");
-            stmt.execute("TRUNCATE TABLE memberships");
-            stmt.execute("TRUNCATE TABLE groups");
-            stmt.execute("TRUNCATE TABLE users");
-            stmt.execute("SET REFERENTIAL_INTEGRITY = TRUE");
-            conn.commit();
-        }
     }
 }

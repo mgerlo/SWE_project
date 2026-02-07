@@ -33,8 +33,6 @@ import static org.junit.jupiter.api.Assertions.*;
 class ExpenseServiceTest_UC5_UC11 extends BaseIntegrationTest {
 
     // Services
-    private UserService userService;
-    private GroupService groupService;
     private ExpenseService expenseService;
 
     // Test data (created in setupTestData)
@@ -50,9 +48,7 @@ class ExpenseServiceTest_UC5_UC11 extends BaseIntegrationTest {
         // Call parent setup (initializes DAOs and cleans database)
         super.setUp();
 
-        // Initialize Services using inherited DAOs
-        userService = new UserService(this.userDAO);
-        groupService = new GroupService(this.groupDAO, this.membershipDAO, this.balanceDAO);
+        // Initialize only ExpenseService (using inherited DAOs)
         expenseService = new ExpenseService(this.expenseDAO, this.membershipDAO, this.balanceDAO, this.groupDAO);
 
         // Setup test data: 2 users in 1 group
@@ -62,35 +58,27 @@ class ExpenseServiceTest_UC5_UC11 extends BaseIntegrationTest {
     /**
      * Creates test data: Alice and Bob in a group called "Vacation"
      */
-    private void setupTestData() {
-        // Create users
-        alice = userService.signUp("alice@test.com", "password123", "Alice");
-        bob = userService.signUp("bob@test.com", "password456", "Bob");
+    private void setupTestData() throws Exception {
+        // Create users DIRECTLY in DB with hashed passwords
+        // This avoids the password validation issue when reloading from DB
+        Long aliceUserId = createUser("alice@test.com", "Alice", "hashed_password_alice_123");
+        Long bobUserId = createUser("bob@test.com", "Bob", "hashed_password_bob_456");
+
+        // Load User objects
+        alice = userDAO.findById(aliceUserId).orElseThrow();
+        bob = userDAO.findById(bobUserId).orElseThrow();
 
         // Alice creates group
-        group = groupService.createGroup(alice.getUserId(), "Vacation", "EUR");
+        Long groupId = createGroup("Vacation", "EUR", aliceUserId);
+        group = groupDAO.findById(groupId).orElseThrow();
 
-        // Get Alice's membership (she's the creator/admin)
-        List<Membership> members = groupService.getGroupMembers(group.getGroupId());
-        aliceMembership = members.stream()
-                .filter(m -> m.getUser().getUserId().equals(alice.getUserId()))
-                .findFirst().orElseThrow();
+        // Create Alice's membership as ADMIN
+        Long aliceMembershipId = createMembership(aliceUserId, groupId, "ADMIN", "ACTIVE");
+        aliceMembership = membershipDAO.findById(aliceMembershipId).orElseThrow();
 
-        // Bob joins and gets approved
-        groupService.joinByCode(bob.getUserId(), group.getInviteCode());
-
-        // Get Bob's membership
-        members = groupService.getGroupMembers(group.getGroupId());
-        bobMembership = members.stream()
-                .filter(m -> m.getUser().getUserId().equals(bob.getUserId()))
-                .findFirst().orElseThrow();
-
-        // Approve Bob
-        groupService.approveMember(bobMembership.getMembershipId(), aliceMembership.getMembershipId());
-
-        // Reload memberships to get updated state
-        aliceMembership = membershipDAO.findById(aliceMembership.getMembershipId()).orElseThrow();
-        bobMembership = membershipDAO.findById(bobMembership.getMembershipId()).orElseThrow();
+        // Create Bob's membership as MEMBER
+        Long bobMembershipId = createMembership(bobUserId, groupId, "MEMBER", "ACTIVE");
+        bobMembership = membershipDAO.findById(bobMembershipId).orElseThrow();
     }
 
     // ==========================================
@@ -165,18 +153,14 @@ class ExpenseServiceTest_UC5_UC11 extends BaseIntegrationTest {
     @Test
     @Order(3)
     @DisplayName("UC5: Add expense with multiple participants splits correctly")
-    void UC5_addExpense_splitsAmountCorrectly() {
-        // Create third user
-        User charlie = userService.signUp("charlie@test.com", "password789", "Charlie");
-        groupService.joinByCode(charlie.getUserId(), group.getInviteCode());
+    void UC5_addExpense_splitsAmountCorrectly() throws Exception {
+        // Create third user directly in DB
+        Long charlieUserId = createUser("charlie@test.com", "Charlie", "hashed_password_charlie_789");
+        User charlie = userDAO.findById(charlieUserId).orElseThrow();
 
-        List<Membership> members = groupService.getGroupMembers(group.getGroupId());
-        Membership charlieMembership = members.stream()
-                .filter(m -> m.getUser().getUserId().equals(charlie.getUserId()))
-                .findFirst().orElseThrow();
-
-        groupService.approveMember(charlieMembership.getMembershipId(), aliceMembership.getMembershipId());
-        charlieMembership = membershipDAO.findById(charlieMembership.getMembershipId()).orElseThrow();
+        // Create Charlie's membership
+        Long charlieMembershipId = createMembership(charlieUserId, group.getGroupId(), "MEMBER", "ACTIVE");
+        Membership charlieMembership = membershipDAO.findById(charlieMembershipId).orElseThrow();
 
         // Alice pays 90 EUR for 3 people
         expenseService.addExpense(
