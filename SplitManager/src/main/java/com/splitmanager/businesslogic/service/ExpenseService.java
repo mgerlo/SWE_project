@@ -28,7 +28,7 @@ import java.util.List;
  * - Aggiornamento Balance conseguente agli eventi di dominio
  * - Validazione business logic
  *
- * NOTA SUL WIRING (come da diagrammi UML):
+ * NOTA SUL WIRING:
  * Gli Observer (Membership) non sono persistiti nel DB (campo transient in Subject).
  * È responsabilità del Service:
  * 1. Caricare Subject (Expense) dal DB
@@ -229,9 +229,6 @@ public class ExpenseService {
             // - Il PAYER riceve CREDITO: (amount - sua_quota)
             // - Gli altri vanno in DEBITO: -shareAmount
 
-            // ==========================================
-            // FASE 5: AGGIORNAMENTO BALANCE (CORRETTO)
-            // ==========================================
 
             for (Membership participant : participants) {
                 // 1. Assicuriamoci di avere l'ID del balance corretto
@@ -265,9 +262,6 @@ public class ExpenseService {
                 // 3. Salvataggio esplicito
                 balanceDAO.update(balance);
 
-                // DEBUG LOG (Rimuovere in produzione)
-                System.out.println("Service Updated Balance for " + participant.getUser().getFullName()
-                        + ": " + balance.getAmount());
             }
 
             // ==========================================
@@ -493,43 +487,51 @@ public class ExpenseService {
                                                BigDecimal newAmount) {
 
         List<ExpenseParticipant> participants = expense.getParticipantDetails();
-        int participantCount = participants.size();
 
-        if (participantCount == 0) {
-            return; // Nessun partecipante, niente da ricalcolare
+        if (participants.isEmpty()) {
+            participants = expenseDAO.findParticipantsByExpenseId(expense.getExpenseId());
         }
 
-        // Calcola vecchia e nuova quota
-        BigDecimal oldShare = oldAmount.divide(
-                new BigDecimal(participantCount), 2, RoundingMode.HALF_UP
-        );
-        BigDecimal newShare = newAmount.divide(
-                new BigDecimal(participantCount), 2, RoundingMode.HALF_UP
-        );
+        // Calcola il numero di partecipanti UNICI
+        long uniqueCount = participants.stream()
+                .map(ep -> ep.getBeneficiary().getMembershipId())
+                .distinct()
+                .count();
 
-        BigDecimal delta = newShare.subtract(oldShare);
+        if (uniqueCount == 0) {
+            return;
+        }
 
-        // Aggiorna i balance
+        // Usa il conteggio UNICO per il calcolo della quota
+        BigDecimal divisor = new BigDecimal(uniqueCount);
+
+        BigDecimal oldShare = oldAmount.divide(divisor, 2, RoundingMode.HALF_UP);
+        BigDecimal newShare = newAmount.divide(divisor, 2, RoundingMode.HALF_UP);
+
+        java.util.Set<Long> processedMembers = new java.util.HashSet<>();
+
         for (ExpenseParticipant ep : participants) {
             Membership participant = ep.getBeneficiary();
-            Balance balance = participant.getBalance();
+            Long memberId = participant.getMembershipId();
 
-            if (balance == null) {
-                continue; // Skip se non ha balance (non dovrebbe accadere)
+            if (processedMembers.contains(memberId)) {
+                continue;
             }
+            processedMembers.add(memberId);
 
-            if (participant.getMembershipId().equals(expense.getPayer().getMembershipId())) {
-                // Il payer: se la spesa aumenta, riceve meno credito (o più debito)
-                // Se la spesa diminuisce, riceve più credito
+            Balance balance = balanceDAO.findByMembershipId(memberId)
+                    .orElseThrow(() -> new DomainException(
+                            "Balance not found for membership: " + memberId
+                    ));
+
+            if (memberId.equals(expense.getPayer().getMembershipId())) {
                 BigDecimal oldCredit = oldAmount.subtract(oldShare);
                 BigDecimal newCredit = newAmount.subtract(newShare);
                 BigDecimal creditDelta = newCredit.subtract(oldCredit);
-
                 balance.apply(creditDelta);
-
             } else {
-                // Altri partecipanti: se la spesa aumenta, hanno più debito
-                balance.apply(delta.negate()); // Negativo perché è debito
+                BigDecimal delta = newShare.subtract(oldShare);
+                balance.apply(delta.negate());
             }
 
             balanceDAO.update(balance);
@@ -542,25 +544,49 @@ public class ExpenseService {
     private void reverseBalancesForExpense(Expense expense) {
         List<ExpenseParticipant> participants = expense.getParticipantDetails();
 
+        if (participants.isEmpty()) {
+            participants = expenseDAO.findParticipantsByExpenseId(expense.getExpenseId());
+        }
+
+        // Calcola il numero di partecipanti UNICI
+        long uniqueCount = participants.stream()
+                .map(ep -> ep.getBeneficiary().getMembershipId())
+                .distinct()
+                .count();
+
+        if (uniqueCount == 0) {
+            return;
+        }
+
+        BigDecimal currentAmount = expense.getAmount();
+
+        // Usa il conteggio UNICO per il calcolo della quota
+        BigDecimal calculatedShare = currentAmount.divide(
+                new BigDecimal(uniqueCount), 2, RoundingMode.HALF_UP
+        );
+
+        java.util.Set<Long> processedMembers = new java.util.HashSet<>();
+
         for (ExpenseParticipant ep : participants) {
             Membership participant = ep.getBeneficiary();
-            Balance balance = participant.getBalance();
+            Long memberId = participant.getMembershipId();
 
-            if (balance == null) {
+            if (processedMembers.contains(memberId)) {
                 continue;
             }
+            processedMembers.add(memberId);
 
-            BigDecimal shareAmount = ep.getShareAmount();
+            Balance balance = balanceDAO.findByMembershipId(memberId)
+                    .orElseThrow(() -> new DomainException(
+                            "Balance not found for membership: " + memberId
+                    ));
 
-            if (participant.getMembershipId().equals(expense.getPayer().getMembershipId())) {
-                // Il payer: rimuovi il credito che aveva ricevuto
-                BigDecimal credit = expense.getAmount().subtract(shareAmount);
-                if (credit.compareTo(BigDecimal.ZERO) > 0) {
-                    balance.decrement(credit); // Togli il credito
-                }
+            if (memberId.equals(expense.getPayer().getMembershipId())) {
+                // Credito = Totale - Quota (calcolata su partecipanti unici)
+                BigDecimal creditToRemove = currentAmount.subtract(calculatedShare);
+                balance.apply(creditToRemove.negate());
             } else {
-                // Altri: rimuovi il debito
-                balance.increment(shareAmount); // Riduci il debito
+                balance.apply(calculatedShare);
             }
 
             balanceDAO.update(balance);
