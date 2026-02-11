@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * NOTA ARCHITETTURALE:
  * I Controller dipendono dall'interfaccia Navigator, non dalla classe concreta NavigationManager (Dipendency Inversion Principle).
- * Questo permette di iniettare uno Stub nei test mantenendo il Singleton in produzione per la gestione centralizzata della UI.
+ * Questo permette di iniettare uno Stub nei test mantenendo il Singleton in produzione per la gestione centralizzata della CLI.
  */
 class E2ETest {
 
@@ -103,7 +103,12 @@ class E2ETest {
         Group group = session.getCurrentGroup();
         Long groupId = group.getGroupId();
         // Recuperiamo l'ID della Membership di Alice (necessario per le operazioni Admin)
-        Long aliceMembershipId = groupService.getGroupMembers(groupId).get(0).getMembershipId();
+        Long aliceMembershipId = groupService.getGroupMembers(groupId).stream()
+                .filter(m -> m.getUser().getEmail().equals("alice@test.com")) // Cerchi l'utente specifico
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Membership for Alice not found"))
+                .getMembershipId();
+
 
         // L'admin genera il codice di invito
         groupController.generateNewInviteCode(aliceMembershipId);
@@ -226,8 +231,11 @@ class E2ETest {
     }
 
     /**
-     * Stub che implementa l'interfaccia Navigator.
-     * Sostituisce NavigationManager nei test per evitare di aprire finestre Swing (Headless Testing).
+     * Stub che implementa l'interfaccia Navigator per i test E2E.
+     * * Scopo: Sostituisce il NavigationManager reale per disaccoppiare
+     * la logica del Controller dall'I/O su console.
+     * Permette di verificare le transizioni di pagina e i messaggi
+     * senza bloccare l'esecuzione in attesa di input utente.
      */
     static class StubNavigator implements Navigator {
         public boolean hasError = false;
